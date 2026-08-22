@@ -144,7 +144,11 @@ but unverified against live Google Cloud until the hackathon credits are active.
 
 Prerequisites:
 
-1. A Google Cloud project linked to billing and the hackathon credit.
+1. A Google Cloud project with the hackathon's credit-backed billing account attached.
+   GCP will not provision Cloud Run, Firestore, or Pub/Sub without a billing account
+   object; this one is funded entirely by the $150 grant. No payment method is added
+   beyond it, and nothing is provisioned that would draw down real money once the
+   credit is exhausted.
 2. Google Cloud SDK authenticated with project-owner-equivalent setup permissions.
 3. A fine-grained GitHub token with **Issues: write** on your report repository. Verity first
    tries the source repo; on the expected permission failure for third-party repos it files in

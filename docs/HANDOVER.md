@@ -246,19 +246,31 @@ still there and can be **relocated** (not deleted) whenever you want:
 | `.cache\torch` | 0.47 GB |
 | `.cache\huggingface` | 0.33 GB |
 
-### Hard constraint: free tier only
+### Hard constraint: no spend beyond the hackathon credit
 
-**This project runs entirely on free tiers. Billing is never to be enabled, changed, or
-suggested — on any service.** When a quota blocks progress the answer is to wait for the
-reset, split the work across days, or narrow the run. Never to lift the cap.
+**The rule:** this project must never spend real money beyond the hackathon's **$150 credit
+grant**, and must never have a payment method added beyond it.
+
+Unconditionally off-limits:
+
+- Adding a credit card or any other payment method.
+- Enabling a paid tier anywhere — Gemini, Google Cloud, or otherwise — to get past a quota.
+- Provisioning anything that would draw down real money once the $150 credit is exhausted.
+
+**Explicitly allowed, and required for Section 6:** attaching the hackathon's credit-backed
+**billing account object** to the Google Cloud project. GCP will not provision Cloud Run,
+Firestore, or Pub/Sub without one. That is a technical prerequisite for creating resources,
+not a spend, and it is funded entirely by the credit grant.
+
+When a quota blocks progress the only remedies are time, splitting the work across days, or
+narrowing the run. Not paying, and not routing around the cap with a second API key or
+project either.
 
 The binding limit today is Google AI Studio: **20 `gemini-3.5-flash` requests per day**. One
 verification job costs up to 4 calls (1 parser + 3 debug), so roughly **5 jobs per day**.
-Gate 5's eight sources therefore need more than one day, and that is the plan — not a
-problem to spend money on.
-
-Google Cloud work waits on the **$150 hackathon credits**, which are a free allowance the
-user is claiming. It does not wait on a billing account.
+Gate 5's eight sources therefore span more than one day by design. This is safe because
+verified claims are cached in claim memory, so a resumed run never re-spends quota on work
+already proven.
 
 ### Known caveat, no action needed
 
