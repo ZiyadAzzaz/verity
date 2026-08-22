@@ -123,6 +123,55 @@
   }
 
   /* ---- tech stack grid ---- */
+  /* ---- profile swap table ---- */
+  .swap-scroll{ overflow-x:auto; }
+  .swap{
+    width:100%;
+    min-width:520px;
+    border-collapse:collapse;
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+    font-size:14px;
+  }
+  .swap th,.swap td{
+    padding:14px 16px;
+    text-align:left;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  .swap thead th{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--flagged);
+    background:var(--navy-2);
+  }
+  .swap tbody tr:last-child td{ border-bottom:none; }
+  .swap .seam{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:rgba(243,239,228,0.72);
+  }
+  .swap .impl{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    color:var(--paper);
+  }
+  .swap .local{ background:rgba(62,124,89,0.10); }
+  .pill{
+    display:inline-block;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    padding:3px 8px;
+    border-radius:20px;
+    border:1px solid var(--line-strong);
+    color:rgba(243,239,228,0.7);
+    margin-bottom:10px;
+  }
   .stack-grid{
     display:grid;
     grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
@@ -278,6 +327,8 @@
       <span class="stamp">Pub/Sub</span>
       <span class="stamp">Firestore</span>
       <span class="stamp">Cloud Trace</span>
+      <span class="stamp">Docker</span>
+      <span class="stamp">SQLite</span>
     </div>
   </header>
 
@@ -453,11 +504,84 @@
         <text class="node-sub" x="450" y="576" text-anchor="middle">final autonomous artifact</text>
       </svg>
     </div>
-    <p class="cap">Cloud Trace and Cloud Logging thread through every node above — not shown as a separate box because every box writes to it.</p>
+    <p class="cap">This is the <b>cloud profile</b>. Cloud Trace and Cloud Logging thread through every node above — not shown as a separate box because every box writes to it. The same agent graph runs locally against SQLite, an in-process queue, and Docker; see section 04.</p>
   </section>
 
   <section>
-    <div class="section-head"><span class="section-num">04</span><h2>Free tools available from the hackathon</h2></div>
+    <div class="section-head"><span class="section-num">04</span><h2>One codebase, two infrastructures</h2></div>
+    <p class="cap" style="margin-bottom:22px;">
+      The four agents depend on four interfaces, never on a vendor SDK. A single setting,
+      <code>VERITY_ENV</code>, chooses which implementations get wired in — and
+      <code>verity/container.py</code> is the only module in the project that imports a concrete
+      backend. Nothing else branches on it: not an agent, not a pipeline step, not a test.
+      The local profile needs no Google Cloud project, no billing account, and no card.
+    </p>
+    <div class="swap-scroll"><table class="swap">
+      <thead>
+        <tr>
+          <th>Seam</th>
+          <th>Interface</th>
+          <th>VERITY_ENV=local</th>
+          <th>VERITY_ENV=cloud</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="seam">State, trace, claim memory</td>
+          <td class="impl">JobStore</td>
+          <td class="impl local">SQLiteJobStore</td>
+          <td class="impl">FirestoreJobStore</td>
+        </tr>
+        <tr>
+          <td class="seam">Intake &rarr; processing</td>
+          <td class="impl">JobQueue</td>
+          <td class="impl local">AsyncioJobQueue</td>
+          <td class="impl">PubSubJobQueue</td>
+        </tr>
+        <tr>
+          <td class="seam">Model calls</td>
+          <td class="impl">ModelClient</td>
+          <td class="impl local">GeminiAIStudioClient</td>
+          <td class="impl">VertexAIModelClient</td>
+        </tr>
+        <tr>
+          <td class="seam">Untrusted execution</td>
+          <td class="impl">SandboxBackend</td>
+          <td class="impl local">DockerSandboxBackend</td>
+          <td class="impl">CloudRunJobBackend</td>
+        </tr>
+      </tbody>
+    </table></div>
+
+    <div class="section-head" style="margin-top:44px;"><span class="section-num">&nbsp;</span><h2 style="font-size:22px;">Why the sandbox is not optional</h2></div>
+    <p class="cap" style="margin-bottom:22px;">
+      The Environment Agent clones and executes arbitrary third-party code from GitHub. It never
+      runs that on the host. Each verification is four separate <code>docker run --rm</code>
+      invocations, and the network is only open where it has to be.
+    </p>
+    <div class="swap-scroll"><table class="swap">
+      <thead>
+        <tr><th>Phase</th><th>Network</th><th>Rationale</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="impl">clone</td><td class="impl">bridge</td><td class="seam">Fetch the declared repository.</td></tr>
+        <tr><td class="impl">venv</td><td class="impl">none</td><td class="seam">Create the interpreter; nothing to download.</td></tr>
+        <tr><td class="impl">install</td><td class="impl">bridge</td><td class="seam">Install the declared dependencies only.</td></tr>
+        <tr><td class="impl">evaluate</td><td class="impl local">none</td><td class="seam">A benchmark that phones home while scoring is not reproducible.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="cap" style="margin-top:18px;">
+      Every container runs with <code>--cap-drop ALL</code>,
+      <code>--security-opt no-new-privileges</code>, a read-only root filesystem, pid/memory/cpu
+      limits, and exactly one bind mount. No Docker socket, no host paths, no reuse between jobs.
+      This is verified rather than asserted: a suite of real containers tries to read host files,
+      write outside the workspace, reach the network mid-benchmark, escalate privileges, find the
+      Docker socket, and fork-bomb the daemon. Every attempt must fail for the gate to pass.
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">05</span><h2>Free tools available from the hackathon</h2></div>
     <div class="res-list">
       <div class="res-item">
         <div class="tag">Cloud credits</div>
