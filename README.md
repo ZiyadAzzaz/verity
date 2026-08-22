@@ -140,7 +140,7 @@ python scripts/validate_deployed.py 'https://YOUR-SERVICE.run.app' --timeout 360
 Deployment is blocked on hackathon credits, not on code. When they land, the swap is
 `VERITY_ENV=cloud` plus the deployment below — the cloud adapters (`FirestoreJobStore`,
 `PubSubJobQueue`, `VertexAIModelClient`, `CloudRunJobBackend`) are implemented and wired,
-but unverified against live Google Cloud until a billing account exists.
+but unverified against live Google Cloud until the hackathon credits are active.
 
 Prerequisites:
 

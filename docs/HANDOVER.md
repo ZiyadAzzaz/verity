@@ -246,6 +246,20 @@ still there and can be **relocated** (not deleted) whenever you want:
 | `.cache\torch` | 0.47 GB |
 | `.cache\huggingface` | 0.33 GB |
 
+### Hard constraint: free tier only
+
+**This project runs entirely on free tiers. Billing is never to be enabled, changed, or
+suggested — on any service.** When a quota blocks progress the answer is to wait for the
+reset, split the work across days, or narrow the run. Never to lift the cap.
+
+The binding limit today is Google AI Studio: **20 `gemini-3.5-flash` requests per day**. One
+verification job costs up to 4 calls (1 parser + 3 debug), so roughly **5 jobs per day**.
+Gate 5's eight sources therefore need more than one day, and that is the plan — not a
+problem to spend money on.
+
+Google Cloud work waits on the **$150 hackathon credits**, which are a free allowance the
+user is claiming. It does not wait on a billing account.
+
 ### Known caveat, no action needed
 
 E: is a **5400rpm spinning disk**. Sandbox builds, container starts, and installs are slower
