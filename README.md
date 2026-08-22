@@ -24,6 +24,10 @@ the one module that picks concrete backends.
 
 See [the architecture and trust boundaries](docs/architecture.md) or open
 `verity-architecture.html` for the presentation diagram.
+**[docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md) — run the pipeline yourself in ten minutes, no
+API key needed.** Two claims ship pre-verified, so a real verdict comes back instantly
+without a single model call.
+
 [docs/HANDOVER.md](docs/HANDOVER.md) is the current project status: what is verified,
 what is not, and the evidence behind each claim.
 

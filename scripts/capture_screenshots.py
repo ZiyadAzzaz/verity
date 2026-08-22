@@ -8,9 +8,8 @@ on the machine.
 
 Writes PNGs to docs/assets/screenshots/.
 
-Note on the GitHub Issue: ZiyadAzzaz/verity-reports is a private repository, so a headless
-Chrome running on a fresh profile is not signed in and will capture a login wall rather than
-the Issue. That one has to come from a signed-in browser - see --help output.
+Captures the architecture page and the filed verdict Issue. Both repositories are public,
+so no signed-in session is needed.
 """
 
 from __future__ import annotations
@@ -24,6 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "assets" / "screenshots"
+ISSUE_URL = "https://github.com/ZiyadAzzaz/verity-reports/issues/1"
 
 CHROME_CANDIDATES = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
@@ -92,17 +92,17 @@ def main() -> int:
         print("  verity-architecture.html not found")
         ok = False
 
+    # The filed verdict. Two crops: a tight one for a slide, and the whole page for the
+    # repo. The tight height stops just past the debug trail, which is where the Debug
+    # Agent's refusal to fabricate lives - that sentence is the pitch.
+    ok &= capture(browser, ISSUE_URL, OUT / "issue-verdict.png", 1440, 1620)
+    ok &= capture(browser, ISSUE_URL, OUT / "issue-verdict-full.png", 1440, 2400)
+
     if args.url:
         name = args.name or "capture"
         ok &= capture(browser, args.url, OUT / f"{name}.png", 1440, 2400)
 
     print()
-    print("The GitHub Issue at verity-reports/issues/1 is in a PRIVATE repository.")
-    print("Headless Chrome runs on a throwaway profile and is not signed in, so it would")
-    print("capture a login page. Capture that one from your signed-in browser, or make the")
-    print("repository public first and re-run with:")
-    print("  python scripts/capture_screenshots.py \\")
-    print("    --url https://github.com/ZiyadAzzaz/verity-reports/issues/1 --name issue-verdict")
     return 0 if ok else 1
 
 
