@@ -9,6 +9,28 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 
+def _gemini_response_schema(schema: dict[str, Any]) -> None:
+    """Make a strict model's JSON Schema acceptable to Gemini's ``response_schema``.
+
+    ``extra="forbid"`` makes Pydantic emit ``additionalProperties: false``. The Gemini
+    REST API rejects that key outright with
+    ``400 INVALID_ARGUMENT: Unknown name "additional_properties"``, so it is stripped from
+    the *emitted* schema only. Runtime validation is untouched: a model response carrying
+    an unexpected field is still rejected when it is parsed back into these types, which
+    is the guarantee that matters.
+
+    Only the boolean form is removed. ``dict[str, str]`` fields legitimately emit
+    ``additionalProperties: {"type": "string"}`` to describe a map, and dropping that
+    would change what the schema means.
+    """
+    if schema.get("additionalProperties") is False:
+        del schema["additionalProperties"]
+
+
+#: Strict at runtime, wire-compatible with Gemini structured output.
+STRICT = ConfigDict(extra="forbid", json_schema_extra=_gemini_response_schema)
+
+
 def utc_now() -> datetime:
     return datetime.now(UTC)
 
@@ -46,7 +68,7 @@ class Confidence(StrEnum):
 class Claim(BaseModel):
     """The required claim object extracted by the Parser Agent."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     metric: str = Field(min_length=1, max_length=200)
     value: float
@@ -67,7 +89,7 @@ class Claim(BaseModel):
 
 
 class ExecutionPlan(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     repository_url: HttpUrl | None = None
     revision: str | None = Field(default=None, max_length=100)
@@ -78,7 +100,7 @@ class ExecutionPlan(BaseModel):
 
 
 class ParsedClaim(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     claim: Claim
     source_url: HttpUrl
@@ -88,7 +110,7 @@ class ParsedClaim(BaseModel):
 
 
 class PatchOperation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     kind: Literal["replace_text", "write_file"]
     path: str = Field(min_length=1, max_length=500)
@@ -105,7 +127,7 @@ class PatchOperation(BaseModel):
 
 
 class DebugProposal(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     diagnosis: str = Field(min_length=1, max_length=4000)
     operations: list[PatchOperation] = Field(default_factory=list, max_length=12)
@@ -113,7 +135,7 @@ class DebugProposal(BaseModel):
 
 
 class EnvironmentResult(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     succeeded: bool
     exit_code: int | None = None
@@ -132,7 +154,7 @@ class EnvironmentResult(BaseModel):
 
 
 class AttemptLog(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     attempt: int = Field(ge=1, le=3)
     error_seen: str = Field(max_length=20_000)
@@ -142,7 +164,7 @@ class AttemptLog(BaseModel):
 
 
 class TraceEvent(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     sequence: int = Field(ge=0)
     agent: Literal["orchestrator", "parser", "environment", "debug", "reporter"]
@@ -152,7 +174,7 @@ class TraceEvent(BaseModel):
 
 
 class Verdict(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     status: VerdictStatus
     confidence: Confidence
@@ -167,7 +189,7 @@ class Verdict(BaseModel):
 
 
 class JobRecord(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     id: str
     canonical_url: str
@@ -198,7 +220,7 @@ class JobView(BaseModel):
 
 
 class SandboxRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     run_id: str
     job_id: str
@@ -210,7 +232,7 @@ class SandboxRequest(BaseModel):
 
 
 class SandboxRun(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = STRICT
 
     request: SandboxRequest
     result: EnvironmentResult | None = None

@@ -22,6 +22,8 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from pydantic import SecretStr
+
 from verity.interfaces import ModelClient, SchemaT
 
 T = TypeVar("T")
@@ -231,12 +233,42 @@ class _AdkGeminiClient(ModelClient):
 class GeminiAIStudioClient(_AdkGeminiClient):
     """Gemini through a Google AI Studio API key — the local-first model path.
 
-    The key is read from ``GEMINI_API_KEY`` at call time and never stored on the instance,
-    logged, or written to the job trace.
+    The key is *injected*, not scavenged from the process environment. ``.env`` is
+    read by pydantic-settings into :class:`~verity.config.Settings` and is never exported
+    to ``os.environ``, so a client that only consulted the environment would not find a
+    key the user had correctly configured. ``verity.container`` passes it in; the
+    environment is a fallback for ``GEMINI_API_KEY=... python ...`` style invocation.
+
+    The value is held as a ``SecretStr`` so it cannot be printed by accident, and it is
+    never logged or written to the job trace.
     """
 
+    def __init__(
+        self,
+        model: str,
+        *,
+        api_key: SecretStr | str | None = None,
+        max_attempts: int = 5,
+        base_delay_seconds: float = 2.0,
+        max_delay_seconds: float = 60.0,
+    ) -> None:
+        super().__init__(
+            model,
+            max_attempts=max_attempts,
+            base_delay_seconds=base_delay_seconds,
+            max_delay_seconds=max_delay_seconds,
+        )
+        if isinstance(api_key, str):
+            api_key = SecretStr(api_key)
+        self._api_key = api_key
+
+    def _resolve_key(self) -> str | None:
+        if self._api_key and self._api_key.get_secret_value():
+            return self._api_key.get_secret_value()
+        return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or None
+
     def _configure_auth(self) -> None:
-        key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        key = self._resolve_key()
         if not key:
             raise RuntimeError(
                 "GEMINI_API_KEY is not set. Create a free key at https://aistudio.google.com/"

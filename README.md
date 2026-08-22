@@ -84,10 +84,25 @@ is not an isolation boundary and production rejects it.
 
 ## Tests and validation gates
 
+Check the machine is ready first — Python, dependencies, the key, and the Docker daemon,
+in one command that never prints your key:
+
+```powershell
+python scripts/check_setup.py
+```
+
+Then:
+
 ```powershell
 powershell -File scripts/test.ps1            # ruff + mypy + unit suite
 powershell -File scripts/test.ps1 -Docker    # the above plus real container isolation
 ```
+
+`test.ps1` and `bootstrap.ps1` find the interpreter through `scripts/_python.ps1`, which
+prefers the `agent-dev` conda environment and falls back to `.venv`. It locates conda via
+`CONDA_EXE` and a scan of every drive rather than `Get-Command conda`, because `conda init`
+installs itself into the PowerShell *profile* — so an interactive prompt has it but a task
+runner or CI shell does not.
 
 The unit suite covers the three input shapes (arXiv PDF, GitHub README, vendor HTML),
 URL/path security, metric capture, exact three-retry honest failure, success-after-patch,

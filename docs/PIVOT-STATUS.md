@@ -1,3 +1,7 @@
+> **Superseded by [HANDOVER.md](HANDOVER.md).** That document is authoritative; this one
+> is kept for history. Two claims below were later found to be wrong —
+> conda *is* installed on this machine, and the live Gemini path has since been verified.
+
 # Verity — Local-First Pivot: Status & Handoff
 
 **Date:** 2026-08-22
@@ -229,12 +233,20 @@ pytest -m "not docker"    78 passed, 9 deselected
 | §5 Clean-environment install | ✅ | See note below |
 | §6 No GCP dependency in the local path | ✅ | `build_container(Settings(env="local"))` imports nothing from `google.cloud` |
 
-**On the clean-environment test:** conda is **not installed on this machine**. I did the
-equivalent — created a fresh Python 3.11.9 venv from nothing and ran
-`pip install -r requirements.txt`. All 89 pinned packages resolved and installed cleanly, and
-the full suite passed against it. That *is* the clean-environment gate; it just used venv
-instead of conda. `scripts/bootstrap.ps1` now handles both, so your documented
-`conda create -n agent-dev python=3.11` path still works on a machine that has conda.
+**On the clean-environment test:** run against two independent environments.
+
+First, a fresh Python 3.11.9 venv built from nothing — all 89 pinned packages resolved and
+installed cleanly, full suite green.
+
+Then against the real one. **Correction to an earlier version of this document: conda *is*
+installed on this machine, at `D:\Anaconda`, and the `agent-dev` environment (Python
+3.11.15) already existed.** I first reported conda as absent for two compounding reasons:
+`Get-Command conda` returns nothing in a non-interactive shell, because `conda init` writes
+itself into the user's PowerShell *profile* and such a shell does not load it; and my
+directory search covered only `%USERPROFILE%`, `%LOCALAPPDATA%`, and `C:\ProgramData`, never
+the D: drive. `scripts/_python.ps1` now resolves conda through `CONDA_EXE` and a scan of
+every filesystem drive, so `bootstrap.ps1` and `test.ps1` behave the same whether run from
+your prompt or by a task runner.
 
 ### Two behaviours worth calling out as verified
 
@@ -369,12 +381,12 @@ missing by the preflight check rather than being passed to the SDK as an empty s
 `local.env` is in `.gitignore`. **Do not paste the key into chat** — I read it from the file,
 and it must not end up in the transcript or in git history.
 
-### Action 3 — Install conda 🟢 *(optional)*
+### Action 3 — Nothing; conda is already sorted 🟢
 
-Only matters if you want the literal `conda create -n agent-dev python=3.11` path from the
-prompt to be exercised on this machine. The code has no conda dependency, and I already
-validated a clean install via venv. `scripts/bootstrap.ps1` handles both. Skip unless the
-hackathon submission specifically calls for conda.
+`D:\Anaconda\envs\agent-dev` exists on Python 3.11.15 and has the pinned dependencies
+installed. `conda activate agent-dev` is the environment for every command in this document.
+The `.venv` in the repository root is now a redundant fallback — delete it or leave it, it is
+git-ignored either way.
 
 ---
 

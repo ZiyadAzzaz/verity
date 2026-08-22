@@ -1,0 +1,26 @@
+# One line-ending convention everywhere: LF in the repository.
+#
+# This is not cosmetic. Dockerfile.runner and the scripts the sandbox path touches are
+# executed inside a Linux container; a CRLF line ending there produces failures that look
+# like the script is wrong rather than the checkout ("\r: command not found", a shebang
+# that resolves to nothing). Normalising here rules that class of bug out before the
+# sandbox's first real run.
+* text=auto eol=lf
+
+# Files that must be LF regardless of platform, because Linux executes them.
+Dockerfile        text eol=lf
+Dockerfile.*      text eol=lf
+*.sh              text eol=lf
+*.py              text eol=lf
+*.yaml            text eol=lf
+*.yml             text eol=lf
+
+# PowerShell is Windows-side only and CRLF is its native convention.
+*.ps1             text eol=crlf
+
+# Never touched.
+*.png             binary
+*.jpg             binary
+*.ico             binary
+*.pdf             binary
+*.vhdx            binary

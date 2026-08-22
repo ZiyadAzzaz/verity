@@ -106,7 +106,7 @@ def build_model_client(settings: Settings) -> ModelClient:
             project=settings.google_cloud_project,
             location=settings.google_cloud_location,
         )
-    return GeminiAIStudioClient(settings.gemini_model)
+    return GeminiAIStudioClient(settings.gemini_model, api_key=settings.gemini_api_key)
 
 
 def build_sandbox(settings: Settings, store: JobStore) -> SandboxBackend:
