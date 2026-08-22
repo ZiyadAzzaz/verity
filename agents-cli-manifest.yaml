@@ -1,0 +1,7 @@
+name: verity
+agent_directory: app
+create_params:
+  deployment_target: cloud_run
+  session_type: in_memory
+  region: us-central1
+

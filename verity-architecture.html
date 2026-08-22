@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verity — System Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy: #0E2233;
+    --navy-2: #12283C;
+    --paper: #F3EFE4;
+    --paper-dim: #E8E2D2;
+    --ink: #1B2430;
+    --verified: #3E7C59;
+    --flagged: #C97A2B;
+    --line: rgba(243,239,228,0.16);
+    --line-strong: rgba(243,239,228,0.32);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--navy);
+    color:var(--paper);
+    font-family:'Inter',sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:980px; margin:0 auto; padding:0 24px;}
+  ::selection{background:var(--flagged); color:var(--navy);}
+
+  /* ---- header / hero ---- */
+  header{
+    padding:72px 0 56px;
+    border-bottom:1px solid var(--line);
+    position:relative;
+    overflow:hidden;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--flagged);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:22px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:7px; height:7px; border-radius:50%;
+    background:var(--flagged);
+    box-shadow:0 0 0 3px rgba(201,122,43,0.22);
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:clamp(40px,8vw,72px);
+    line-height:0.98;
+    letter-spacing:-0.01em;
+    color:var(--paper);
+  }
+  h1 em{
+    font-style:italic;
+    font-weight:400;
+    color:var(--verified);
+  }
+  .tagline{
+    margin-top:20px;
+    max-width:560px;
+    font-size:17px;
+    color:rgba(243,239,228,0.72);
+  }
+  .stamp-row{
+    display:flex;
+    gap:12px;
+    margin-top:32px;
+    flex-wrap:wrap;
+  }
+  .stamp{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    border:1px solid var(--line-strong);
+    border-radius:100px;
+    padding:7px 14px;
+    color:rgba(243,239,228,0.85);
+  }
+
+  /* ---- section shell ---- */
+  section{padding:64px 0; border-bottom:1px solid var(--line);}
+  section:last-of-type{border-bottom:none;}
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+    margin-bottom:36px;
+  }
+  .section-num{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:var(--verified);
+    border:1px solid var(--verified);
+    border-radius:4px;
+    padding:3px 7px;
+  }
+  h2{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:28px;
+    color:var(--paper);
+  }
+  .section-sub{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:rgba(243,239,228,0.45);
+    margin-top:-30px;
+    margin-bottom:36px;
+    padding-left:38px;
+  }
+
+  /* ---- tech stack grid ---- */
+  .stack-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .stack-card{
+    background:var(--navy-2);
+    padding:22px;
+  }
+  .stack-card .role{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--flagged);
+    margin-bottom:10px;
+  }
+  .stack-card .name{
+    font-family:'Fraunces',serif;
+    font-size:19px;
+    font-weight:600;
+    color:var(--paper);
+    margin-bottom:6px;
+  }
+  .stack-card .desc{
+    font-size:13.5px;
+    color:rgba(243,239,228,0.62);
+  }
+
+  /* ---- pipeline diagram ---- */
+  .pipeline{
+    display:flex;
+    flex-direction:column;
+    gap:0;
+  }
+  .stage{
+    display:grid;
+    grid-template-columns:56px 1fr;
+    gap:20px;
+    position:relative;
+    padding-bottom:36px;
+  }
+  .stage:last-child{padding-bottom:0;}
+  .stage-marker{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .stage-dot{
+    width:40px; height:40px;
+    border-radius:50%;
+    border:1.5px solid var(--verified);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    color:var(--verified);
+    background:var(--navy);
+    flex-shrink:0;
+  }
+  .stage-connector{
+    width:1.5px;
+    flex:1;
+    background:repeating-linear-gradient(to bottom, var(--line-strong) 0, var(--line-strong) 4px, transparent 4px, transparent 9px);
+    margin-top:4px;
+  }
+  .stage:last-child .stage-connector{display:none;}
+  .stage-body{
+    background:var(--navy-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:20px 22px;
+  }
+  .stage-body h3{
+    font-family:'Fraunces',serif;
+    font-size:18px;
+    font-weight:600;
+    margin-bottom:8px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .stage-body h3 .loop-tag{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--flagged);
+    border:1px solid var(--flagged);
+    border-radius:100px;
+    padding:2px 9px;
+  }
+  .stage-body p{
+    font-size:14px;
+    color:rgba(243,239,228,0.68);
+    margin-bottom:10px;
+  }
+  .stage-body .uses{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:rgba(243,239,228,0.5);
+  }
+  .stage-body .uses b{color:var(--verified); font-weight:500;}
+
+  /* ---- system diagram (svg) ---- */
+  .diagram-frame{
+    background:var(--navy-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:20px;
+    overflow-x:auto;
+  }
+  .diagram-frame svg{width:100%; height:auto; min-width:640px; display:block;}
+  .cap{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:rgba(243,239,228,0.45);
+    margin-top:14px;
+  }
+
+  /* ---- resources list ---- */
+  .res-list{display:flex; flex-direction:column; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .res-item{background:var(--navy-2); padding:18px 22px; display:grid; grid-template-columns:150px 1fr; gap:18px;}
+  .res-item .tag{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--verified);}
+  .res-item .body{font-size:14px; color:rgba(243,239,228,0.75);}
+  .res-item .body b{color:var(--paper); font-weight:600;}
+
+  @media (max-width:640px){
+    .res-item{grid-template-columns:1fr; gap:6px;}
+    .stage{grid-template-columns:40px 1fr; gap:14px;}
+    .stage-dot{width:32px; height:32px; font-size:11px;}
+  }
+
+  footer{padding:40px 0 64px; text-align:center;}
+  footer p{font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:rgba(243,239,228,0.4);}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">All Things Agentic Hackathon — The Taskmaster Track</div>
+    <h1>Verity<br><em>verifies before you build on it.</em></h1>
+    <p class="tagline">An autonomous agent that takes an AI claim — a paper, a repo, a vendor benchmark — and actually attempts to reproduce it: parses the claim, runs it in a sandbox, self-debugs failures, and files an evidence-backed verdict. No human triage until there's a result.</p>
+    <div class="stamp-row">
+      <span class="stamp">Gemini 3.5 Flash</span>
+      <span class="stamp">Google ADK</span>
+      <span class="stamp">Cloud Run</span>
+      <span class="stamp">Pub/Sub</span>
+      <span class="stamp">Firestore</span>
+      <span class="stamp">Cloud Trace</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-head"><span class="section-num">01</span><h2>Technology stack</h2></div>
+    <div class="stack-grid">
+      <div class="stack-card">
+        <div class="role">Model</div>
+        <div class="name">Gemini 3.5 Flash</div>
+        <div class="desc">Multimodal reasoning — reads PDFs/tables to extract claims, and proposes code patches during debugging.</div>
+      </div>
+      <div class="stack-card">
+        <div class="role">Agent Framework</div>
+        <div class="name">Google ADK</div>
+        <div class="desc">Orchestrates the four-agent pipeline as typed, testable agents rather than one large prompt.</div>
+      </div>
+      <div class="stack-card">
+        <div class="role">Compute</div>
+        <div class="name">Cloud Run</div>
+        <div class="desc">Hosts the API and the agent pipeline; ephemeral Cloud Run Jobs run sandboxed verification code.</div>
+      </div>
+      <div class="stack-card">
+        <div class="role">Messaging</div>
+        <div class="name">Pub/Sub</div>
+        <div class="desc">Decouples job intake from processing — makes the pipeline genuinely asynchronous, not a chat loop.</div>
+      </div>
+      <div class="stack-card">
+        <div class="role">State &amp; Memory</div>
+        <div class="name">Firestore</div>
+        <div class="desc">Job status, agent trace log, and a memory bank of previously-verified claims for instant dedup.</div>
+      </div>
+      <div class="stack-card">
+        <div class="role">Observability</div>
+        <div class="name">Cloud Trace / Logging</div>
+        <div class="desc">Full trace of every agent decision and retry — the evidence a judge can watch happen live.</div>
+      </div>
+      <div class="stack-card">
+        <div class="role">Output</div>
+        <div class="name">GitHub REST API</div>
+        <div class="desc">Files the final verdict as a real, clickable GitHub Issue — a concrete autonomous deliverable.</div>
+      </div>
+      <div class="stack-card">
+        <div class="role">Frontend</div>
+        <div class="name">Cloud Run web app</div>
+        <div class="desc">Minimal UI: submit a claim URL, watch live status, view the filed verdict.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">02</span><h2>Agent pipeline</h2></div>
+    <div class="pipeline">
+      <div class="stage">
+        <div class="stage-marker"><div class="stage-dot">01</div><div class="stage-connector"></div></div>
+        <div class="stage-body">
+          <h3>Parser Agent</h3>
+          <p>Reads the submitted paper, repo, or vendor page. Extracts the specific claim: metric, dataset, and conditions, into a typed schema.</p>
+          <div class="uses">reads &rarr; <b>Gemini 3.5 Flash</b> (multimodal PDF + table reading)</div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="stage-marker"><div class="stage-dot">02</div><div class="stage-connector"></div></div>
+        <div class="stage-body">
+          <h3>Environment Agent</h3>
+          <p>Spins up an ephemeral sandbox, clones the target repo, installs dependencies, and attempts the evaluation run.</p>
+          <div class="uses">executes on &rarr; <b>Cloud Run Job</b> (containerized, ephemeral)</div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="stage-marker"><div class="stage-dot">03</div><div class="stage-connector"></div></div>
+        <div class="stage-body">
+          <h3>Debug Agent <span class="loop-tag">retry loop &middot; capped at 3</span></h3>
+          <p>On failure, reads the stack trace, proposes and applies a patch, retries. Reports an honest failure if unresolved after three attempts — a deliberate design choice, not a limitation to hide.</p>
+          <div class="uses">reasons with &rarr; <b>Gemini 3.5 Flash</b> · logs every attempt to <b>Firestore</b></div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="stage-marker"><div class="stage-dot">04</div></div>
+        <div class="stage-body">
+          <h3>Reporter Agent</h3>
+          <p>Writes the structured verdict — claimed vs. actual result, what was fixed, confidence level — and files it as the final artifact.</p>
+          <div class="uses">delivers via &rarr; <b>GitHub API</b> + writes back to <b>Firestore</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">03</span><h2>System architecture</h2></div>
+    <div class="diagram-frame">
+      <svg viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 z" fill="#3E7C59"/>
+          </marker>
+        </defs>
+        <style>
+          .node{ fill:#12283C; stroke:rgba(243,239,228,0.32); stroke-width:1; rx:8; }
+          .node-title{ font-family:'IBM Plex Mono',monospace; font-size:12px; fill:#F3EFE4; font-weight:600; }
+          .node-sub{ font-family:'IBM Plex Mono',monospace; font-size:10px; fill:rgba(243,239,228,0.5); }
+          .edge{ stroke:#3E7C59; stroke-width:1.4; fill:none; marker-end:url(#arrow); }
+          .edge-label{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; fill:rgba(243,239,228,0.5); }
+          .grp{ fill:none; stroke:rgba(201,122,43,0.5); stroke-width:1; stroke-dasharray:3 4; rx:10; }
+          .grp-label{ font-family:'IBM Plex Mono',monospace; font-size:10px; fill:#C97A2B; text-transform:uppercase; letter-spacing:.08em; }
+        </style>
+
+        <!-- Frontend -->
+        <rect class="node" x="360" y="10" width="180" height="52"/>
+        <text class="node-title" x="450" y="32" text-anchor="middle">Frontend</text>
+        <text class="node-sub" x="450" y="48" text-anchor="middle">Cloud Run · web form</text>
+
+        <path class="edge" d="M450,62 L450,92"/>
+        <text class="edge-label" x="462" y="80">submit claim URL</text>
+
+        <!-- Orchestrator -->
+        <rect class="node" x="345" y="94" width="210" height="52"/>
+        <text class="node-title" x="450" y="116" text-anchor="middle">Orchestrator API</text>
+        <text class="node-sub" x="450" y="132" text-anchor="middle">Cloud Run · FastAPI</text>
+
+        <path class="edge" d="M450,146 L450,176"/>
+
+        <!-- Pub/Sub -->
+        <rect class="node" x="360" y="178" width="180" height="52"/>
+        <text class="node-title" x="450" y="200" text-anchor="middle">Pub/Sub</text>
+        <text class="node-sub" x="450" y="216" text-anchor="middle">verification-jobs topic</text>
+
+        <path class="edge" d="M450,230 L450,260"/>
+
+        <!-- Agent pipeline group -->
+        <rect class="grp" x="70" y="262" width="760" height="150"/>
+        <text class="grp-label" x="88" y="282">ADK agent pipeline &middot; Cloud Run job</text>
+
+        <rect class="node" x="100" y="300" width="150" height="70"/>
+        <text class="node-title" x="175" y="328" text-anchor="middle">Parser</text>
+        <text class="node-sub" x="175" y="344" text-anchor="middle">Gemini 3.5</text>
+
+        <path class="edge" d="M250,335 L280,335"/>
+
+        <rect class="node" x="282" y="300" width="150" height="70"/>
+        <text class="node-title" x="357" y="328" text-anchor="middle">Environment</text>
+        <text class="node-sub" x="357" y="344" text-anchor="middle">sandboxed exec</text>
+
+        <path class="edge" d="M432,335 L462,335"/>
+
+        <rect class="node" x="464" y="300" width="150" height="70"/>
+        <text class="node-title" x="539" y="322" text-anchor="middle">Debug</text>
+        <text class="node-sub" x="539" y="338" text-anchor="middle">Gemini 3.5 · loop</text>
+        <text class="node-sub" x="539" y="354" text-anchor="middle">(max 3 retries)</text>
+
+        <path class="edge" d="M614,335 L644,335"/>
+
+        <rect class="node" x="646" y="300" width="150" height="70"/>
+        <text class="node-title" x="721" y="328" text-anchor="middle">Reporter</text>
+        <text class="node-sub" x="721" y="344" text-anchor="middle">verdict + issue</text>
+
+        <path class="edge" d="M175,370 Q175,395 250,395"/>
+        <text class="edge-label" x="180" y="410">state / trace</text>
+
+        <path class="edge" d="M450,412 L450,442"/>
+
+        <!-- Firestore -->
+        <rect class="node" x="345" y="444" width="210" height="60"/>
+        <text class="node-title" x="450" y="468" text-anchor="middle">Firestore</text>
+        <text class="node-sub" x="450" y="484" text-anchor="middle">job state · memory bank</text>
+
+        <path class="edge" d="M721,370 L721,410 Q721,504 555,474"/>
+
+        <path class="edge" d="M450,504 L450,534"/>
+
+        <!-- GitHub Issue -->
+        <rect class="node" x="345" y="536" width="210" height="60"/>
+        <text class="node-title" x="450" y="560" text-anchor="middle">GitHub Issue</text>
+        <text class="node-sub" x="450" y="576" text-anchor="middle">final autonomous artifact</text>
+      </svg>
+    </div>
+    <p class="cap">Cloud Trace and Cloud Logging thread through every node above — not shown as a separate box because every box writes to it.</p>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">04</span><h2>Free tools available from the hackathon</h2></div>
+    <div class="res-list">
+      <div class="res-item">
+        <div class="tag">Cloud credits</div>
+        <div class="body"><b>$150 in Google Cloud credits</b> — claimed via the credit form on the hackathon's Resources tab, after signing up for the no-cost Google Cloud trial. Covers Cloud Run, Pub/Sub, and Firestore usage for the whole build.</div>
+      </div>
+      <div class="res-item">
+        <div class="tag">GEAR program</div>
+        <div class="body"><b>Gemini Enterprise Agent Ready</b> — free through the Google Developer Program. Gives 35 monthly learning credits on Google Skills for hands-on labs in a no-cost sandbox, official ADK training, and skill badges.</div>
+      </div>
+      <div class="res-item">
+        <div class="tag">Cost control</div>
+        <div class="body">The Resources tab includes cost-saving tips: set billing alerts in Cloud Console, and protect public Cloud Run URLs with API keys/auth so stray traffic can't drain the credit balance.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>VERITY — SYSTEM ARCHITECTURE — BUILT FOR THE TASKMASTER TRACK</p>
+  </footer>
+</div>
+
+</body>
+</html>

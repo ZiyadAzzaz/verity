@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verity — verify before you build</title>
+  <style>
+    :root { --navy:#0e2233; --navy2:#12283c; --paper:#f3efe4; --muted:#aab2b5; --green:#69a67e; --orange:#df9347; --red:#d66d63; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:var(--navy); color:var(--paper); font-family:Inter,ui-sans-serif,system-ui,sans-serif; }
+    main { width:min(920px,calc(100% - 32px)); margin:0 auto; padding:64px 0 80px; }
+    .eyebrow { color:var(--orange); font:600 12px ui-monospace,monospace; letter-spacing:.12em; text-transform:uppercase; }
+    h1 { margin:14px 0 10px; font:600 clamp(42px,8vw,72px) Georgia,serif; line-height:.96; }
+    h1 em { color:var(--green); font-weight:400; }
+    .lede { max-width:690px; color:var(--muted); font-size:17px; line-height:1.65; }
+    .panel { margin-top:34px; padding:24px; border:1px solid #ffffff26; border-radius:12px; background:var(--navy2); box-shadow:0 24px 80px #0003; }
+    label { display:block; margin:0 0 8px; font:600 11px ui-monospace,monospace; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); }
+    input { width:100%; border:1px solid #ffffff35; border-radius:7px; padding:13px 14px; color:var(--paper); background:#091b2a; font:14px ui-monospace,monospace; outline:none; }
+    input:focus { border-color:var(--green); box-shadow:0 0 0 3px #69a67e25; }
+    .field + .field { margin-top:16px; }
+    button { margin-top:18px; border:0; border-radius:7px; padding:12px 18px; color:#081b29; background:var(--paper); font-weight:750; cursor:pointer; }
+    button:hover { background:#fff; }
+    button:disabled { opacity:.5; cursor:wait; }
+    .status { display:none; margin-top:26px; }
+    .status.visible { display:block; }
+    .statusline { display:flex; gap:10px; align-items:center; font:600 13px ui-monospace,monospace; }
+    .dot { width:9px; height:9px; border-radius:50%; background:var(--orange); box-shadow:0 0 0 4px #df934727; }
+    .done .dot { background:var(--green); }
+    .failed .dot { background:var(--red); }
+    .summary { margin:20px 0; padding:18px; background:#091b2a; border-left:3px solid var(--green); line-height:1.55; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1px; background:#ffffff20; border:1px solid #ffffff20; border-radius:8px; overflow:hidden; }
+    .cell { padding:15px; background:#0f2638; }
+    .cell small { display:block; color:var(--muted); text-transform:uppercase; font:10px ui-monospace,monospace; letter-spacing:.08em; }
+    .cell strong { display:block; margin-top:6px; overflow-wrap:anywhere; }
+    .trace { margin-top:24px; }
+    .event { border-top:1px solid #ffffff18; padding:12px 0; display:grid; grid-template-columns:110px 1fr; gap:12px; font-size:13px; }
+    .agent { color:var(--green); font:600 11px ui-monospace,monospace; text-transform:uppercase; }
+    .error { color:#ffaba3; margin-top:14px; white-space:pre-wrap; }
+    a { color:#9ed7b1; }
+    footer { margin-top:34px; color:#ffffff65; font:11px ui-monospace,monospace; }
+    @media (max-width:600px) { main { padding-top:40px; } .event { grid-template-columns:1fr; gap:4px; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Autonomous claim verification</div>
+  <h1>Verity <em>runs the evidence.</em></h1>
+  <p class="lede">Submit an arXiv paper, GitHub benchmark, or vendor claim. Verity extracts a typed claim, executes the associated evaluation in an ephemeral sandbox, attempts at most three transparent fixes, and files the verdict as a GitHub Issue.</p>
+  <section class="panel">
+    <form id="form">
+      <div class="field"><label for="url">Public claim URL</label><input id="url" type="url" required placeholder="https://arxiv.org/abs/…" autocomplete="url"></div>
+      <div class="field"><label for="key">Verity API key</label><input id="key" type="password" placeholder="Required by deployed service" autocomplete="current-password"></div>
+      <button id="submit" type="submit">Start verification</button>
+    </form>
+    <div id="error" class="error" role="alert"></div>
+    <div id="status" class="status" aria-live="polite">
+      <div id="statusline" class="statusline"><span class="dot"></span><span id="statusText">Queued</span></div>
+      <div id="result"></div>
+      <div class="trace"><h2>Agent trace</h2><div id="trace"></div></div>
+    </div>
+  </section>
+  <footer><a href="/architecture">Architecture</a> · Every retry and patch is persisted; absent evidence remains absent.</footer>
+</main>
+<script>
+const form=document.querySelector('#form'), button=document.querySelector('#submit'), error=document.querySelector('#error');
+const statusBox=document.querySelector('#status'), statusLine=document.querySelector('#statusline'), statusText=document.querySelector('#statusText');
+const result=document.querySelector('#result'), trace=document.querySelector('#trace');
+let timer=null;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const headers=()=>({'Content-Type':'application/json','X-Verity-Key':document.querySelector('#key').value});
+function render(view){
+  const j=view.job; statusText.textContent=j.status.replaceAll('_',' '); statusLine.className='statusline '+(j.status==='completed'?'done':j.status==='failed'?'failed':'');
+  trace.innerHTML=view.trace.map(e=>`<div class="event"><span class="agent">${esc(e.agent)}</span><span>${esc(e.action.replaceAll('_',' '))}</span></div>`).join('');
+  if(j.verdict){const v=j.verdict,c=v.claim; result.innerHTML=`<div class="summary"><strong>${esc(v.status.replaceAll('_',' '))}</strong><br>${esc(v.summary)}</div><div class="grid"><div class="cell"><small>Claimed</small><strong>${esc(c.value)}${esc(c.unit)}</strong></div><div class="cell"><small>Reproduced</small><strong>${v.actual_value===null?'Not captured':esc(v.actual_value)+esc(c.unit)}</strong></div><div class="cell"><small>Confidence</small><strong>${esc(v.confidence)}</strong></div><div class="cell"><small>Artifact</small><strong>${v.issue_url?`<a href="${esc(v.issue_url)}" target="_blank" rel="noopener">GitHub Issue</a>`:'Not filed'}</strong></div></div>`;}
+  if(j.error) error.textContent=j.error;
+  if(['completed','failed'].includes(j.status)){clearInterval(timer); button.disabled=false;}
+}
+async function poll(id){try{const r=await fetch(`/api/jobs/${id}`,{headers:headers()});if(!r.ok)throw new Error((await r.json()).detail||r.statusText);render(await r.json());}catch(e){error.textContent=e.message;}}
+form.addEventListener('submit',async e=>{e.preventDefault();clearInterval(timer);error.textContent='';result.innerHTML='';trace.innerHTML='';button.disabled=true;statusBox.classList.add('visible');statusText.textContent='Submitting';try{const r=await fetch('/api/jobs',{method:'POST',headers:headers(),body:JSON.stringify({url:document.querySelector('#url').value})});const data=await r.json();if(!r.ok)throw new Error(data.detail||r.statusText);await poll(data.job_id);timer=setInterval(()=>poll(data.job_id),2000);}catch(e){error.textContent=e.message;button.disabled=false;}});
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+{
+  "comment": "Real, varied claim sources for the local end-to-end gate. Deliberately mixed: arXiv PDFs with no runnable repository, GitHub repositories that do have one, a pinned revision, and a vendor marketing page. Several of these are expected to end in could_not_verify or inconclusive — that is the honest-failure path, not a bug.",
+  "urls": [
+    {
+      "url": "https://arxiv.org/abs/1512.03385",
+      "shape": "arXiv PDF",
+      "expectation": "multimodal PDF parse; no runnable repository is linked, so a non-verified verdict is the correct outcome"
+    },
+    {
+      "url": "https://arxiv.org/abs/1706.03762",
+      "shape": "arXiv PDF",
+      "expectation": "BLEU claim extracted from a table; no reproducible repository"
+    },
+    {
+      "url": "https://github.com/facebookresearch/detr",
+      "shape": "GitHub README",
+      "expectation": "repository present; evaluation needs COCO weights and data, so expect the bounded debug loop and an honest failure"
+    },
+    {
+      "url": "https://github.com/ultralytics/yolov5/tree/v7.0",
+      "shape": "GitHub README at a pinned revision",
+      "expectation": "exercises the revision path of the execution plan"
+    },
+    {
+      "url": "https://github.com/openai/whisper",
+      "shape": "GitHub README",
+      "expectation": "WER claim; large model download will not complete inside the sandbox timeout"
+    },
+    {
+      "url": "https://github.com/psf/requests",
+      "shape": "GitHub README",
+      "expectation": "a small pure-Python repository whose test suite actually installs and runs in the sandbox"
+    },
+    {
+      "url": "https://www.nvidia.com/en-us/data-center/h100/",
+      "shape": "vendor HTML",
+      "expectation": "marketing multiplier claim with no repository; must not be reported as verified"
+    },
+    {
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash",
+      "shape": "vendor HTML",
+      "expectation": "benchmark table on a documentation page; no reproducible artifact"
+    }
+  ]
+}

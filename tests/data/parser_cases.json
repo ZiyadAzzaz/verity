@@ -1,0 +1,24 @@
+[
+  {
+    "name": "arxiv_pdf_table",
+    "url": "https://arxiv.org/abs/1512.03385",
+    "expected_metric_contains": "top-5",
+    "expected_value": 3.57,
+    "expected_dataset_contains": "ImageNet"
+  },
+  {
+    "name": "github_readme_benchmark",
+    "url": "https://github.com/facebookresearch/detr",
+    "expected_metric_contains": "AP",
+    "expected_value": 42.0,
+    "expected_dataset_contains": "COCO"
+  },
+  {
+    "name": "vendor_claim_page",
+    "url": "https://www.nvidia.com/en-us/data-center/h100/",
+    "expected_metric_contains": "performance",
+    "expected_value": 4.0,
+    "expected_dataset_contains": "AI"
+  }
+]
+

@@ -1,0 +1,3 @@
+# Deployment tooling is isolated from the runtime image because Agents CLI brings
+# build/evaluation dependencies that the Cloud Run service itself does not need.
+google-agents-cli==1.4.0

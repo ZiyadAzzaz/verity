@@ -1,0 +1,43 @@
+# Verity sandbox runtime image.
+#
+# This is the container that untrusted third-party code actually executes in. It is
+# started by verity.agents.environment.DockerSandboxBackend as `docker run --rm` with
+# --cap-drop ALL, --read-only, resource limits, and exactly one bind mount (/work).
+#
+# It carries language runtimes and build toolchains only. It contains no Verity code, no
+# credentials, and no entry point of its own: every phase's argv is supplied by the
+# Environment Agent via --entrypoint, so the image cannot decide what gets run.
+FROM python:3.11.15-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Common runtimes and the build tooling that source distributions of ML packages need.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        curl \
+        git \
+        git-lfs \
+        nodejs \
+        npm \
+        pkg-config \
+        libopenblas-dev \
+        unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# A non-root default user. Docker Desktop bind mounts are world-writable, so this is the
+# effective identity on Windows and macOS; on Linux the backend passes --user with the
+# host uid so the workspace stays writable.
+RUN useradd --create-home --uid 10002 sandbox \
+    && mkdir -p /work \
+    && chown sandbox:sandbox /work
+
+USER 10002
+WORKDIR /work
+
+# No ENTRYPOINT and no CMD on purpose: the caller always supplies both.
