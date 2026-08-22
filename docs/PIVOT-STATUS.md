@@ -1,5 +1,5 @@
-> **Superseded by [STATUS.md](STATUS.md).** That document is the authoritative status
-> report; this one is kept for history. Two claims below were later found to be wrong —
+> **Superseded by [HANDOVER.md](HANDOVER.md).** That document is authoritative; this one
+> is kept for history. Two claims below were later found to be wrong —
 > conda *is* installed on this machine, and the live Gemini path has since been verified.
 
 # Verity — Local-First Pivot: Status & Handoff

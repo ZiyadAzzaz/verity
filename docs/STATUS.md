@@ -1,3 +1,6 @@
+> **Superseded by [HANDOVER.md](HANDOVER.md)**, which consolidates everything into one
+> document. This file is kept for history only.
+
 # Verity — Full Status Report
 
 **Last updated:** 2026-08-22
@@ -12,13 +15,14 @@
 |---|---|
 | Local-first pivot | **Code complete** |
 | Static analysis | `ruff` ✅ · `ruff format` ✅ · `mypy --strict` ✅ |
-| Unit tests | **96 passed**, 9 deselected (the Docker suite) |
+| Unit tests | **109 passed**, 9 deselected (the Docker suite) |
 | Live Gemini path | ✅ **Verified end to end** — 3 real sources, 2 real bugs found and fixed |
-| Docker sandbox | 🔴 **Never executed a container.** Daemon has not responded all session |
+| Docker sandbox | 🟡 Daemon **live** (29.7.2) after relocating to `E:\wsl`; gates running |
 | Cloud path | ⏸ Wired and selectable; unverified, waiting on credits |
-| Git | 2 commits, local only. `17b364e` on branch `fix/live-gemini-and-conda-resolution` |
+| Git | 5 commits, local only, on `fix/live-gemini-and-conda-resolution` |
 
-**One thing blocks everything that remains: the Docker daemon.** See [§6](#6-what-i-need-from-you).
+**Docker is now working.** The daemon was wedged because C: had 0 bytes free; relocating
+its data to `E:\wsl\Docker` fixed it. See [DOCKER-FIX.md](DOCKER-FIX.md) for the evidence.
 
 ---
 

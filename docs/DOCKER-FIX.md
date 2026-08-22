@@ -1,3 +1,6 @@
+> **Superseded by [HANDOVER.md](HANDOVER.md)**, which consolidates everything into one
+> document. This file is kept for history only.
+
 # Docker on this machine — root cause and the move to E:\wsl
 
 ## The actual root cause: C: was completely full
