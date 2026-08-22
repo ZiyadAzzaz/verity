@@ -35,24 +35,37 @@ A grep across every 429 payload for `resetTime`, `reset_time`, `quotaResetTime`,
 `X-RateLimit-Reset` returns **nothing**. Google simply does not publish an absolute reset
 timestamp in this error.
 
-**Finding 3 — the behaviour does not match a midnight boundary.** The quota ID says "per day",
-but a probe succeeded at 21:19 Cairo, calls then throttled again within minutes, and the
-retry hints were 10–51 seconds. That is the shape of a **short rolling window**, not a hard
-daily cap that clears at a fixed hour. If it were a midnight-Pacific daily reset, the probe
-at 21:19 Cairo would have failed and the retry hints would have been hours, not seconds.
+**Finding 3 — I initially misread this, and the correction matters.**
 
-**Conclusion, stated honestly:** there is no exact reset time to report, because the limit does
-not behave like a scheduled daily reset and the API refuses to name one. What I can tell you
-precisely is the *observed* behaviour: throttling clears in seconds to low minutes, and the
-practical throughput is roughly 20 requests before a cooldown.
+My first reading was that the short retry hints meant a rolling window rather than a daily
+cap, so the gates would not need scheduling. **That was wrong.** I tested it directly:
 
-**The one place an authoritative number would exist** is the quota page in Google AI Studio
+```
+immediate                                    18:26:34Z  HTTP 429  retryDelay=25s
+after 20s (longer than any retryDelay seen)  18:26:54Z  HTTP 429  retryDelay=4s
+```
+
+Waiting longer than the stated delay still fails, and the delay it reports *shrinks* while the
+request keeps being refused. **The `retryDelay` field does not track the daily quota at all** —
+it is a generic hint, and treating it as a reset signal is a mistake.
+
+The real limit is exactly what the quota ID says: `GenerateRequestsPerDayPerProjectPerModel`,
+`quotaValue: 20`. **20 requests per day, hard.** The probe that returned 200 at 21:19 Cairo did
+so because roughly one call remained in the day's budget; the resumed run consumed it within
+seconds and hit the wall again.
+
+**Conclusion:** there is a genuine daily reset, and the API never names when it happens. It
+publishes no absolute timestamp, and its relative hint is actively misleading. I could tell you
+what Google's documentation generally says about the reset hour, but you asked me not to
+estimate from general knowledge, and I would only be dressing up a guess.
+
+**The one place an authoritative number exists** is the quota page in Google AI Studio
 (`ai.dev/rate-limit`), which needs your signed-in browser. Claude-in-Chrome reports no
-connected browser, so I cannot read it. If you open that page and paste what it says, I will
-convert it to Cairo time exactly.
+connected browser, so I cannot read it. Open that page, paste what it shows, and I will convert
+it to Cairo time exactly.
 
-**Practical effect: none.** The backoff absorbs these throttles — it retried, waited, and the
-run continued. Gates do not need scheduling around a reset hour.
+**Practical effect: the multi-day plan stands as originally scoped.** Roughly 5 jobs per day,
+and gates do need to wait for the reset.
 
 ---
 
@@ -152,8 +165,24 @@ waiting. It is pointed at the gate-4 database so claim memory does its job:
 property the multi-day plan depends on, now demonstrated rather than assumed: a resumed run
 never re-spends quota on work already proven.
 
-Currently working through DETR — the source that died on quota last time — with a live sandbox
-container. The backoff is absorbing throttles as they come.
+The run then hit the daily cap again on the two GitHub sources:
+
+```
+could_not_verify   None             0.0s  arxiv.org/abs/1512.03385          cached, 0 calls
+could_not_verify   None             0.0s  arxiv.org/abs/1706.03762          cached, 0 calls
+failed             no verdict     246.9s  github.com/facebookresearch/detr  quota
+failed             no verdict      66.4s  github.com/ultralytics/yolov5     quota
+
+=== dedup re-submission
+  cached=True in 0.000s
+```
+
+So the batch did not complete, and today's 20 requests are spent. What it *did* prove is the
+cache property the whole multi-day plan rests on: two previously-verified sources returned
+their verdicts at **0.0s and zero Gemini calls**, and the dedup re-submission came back in
+**0.000s**. A resumed run genuinely does not re-spend quota on proven work.
+
+Remaining for tomorrow: DETR, yolov5, and sources 5–8.
 
 ---
 
