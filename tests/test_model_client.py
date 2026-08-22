@@ -127,3 +127,68 @@ def test_ai_studio_auth_keeps_the_sdk_off_vertex(monkeypatch: pytest.MonkeyPatch
 def test_vertex_client_requires_a_project() -> None:
     with pytest.raises(RuntimeError, match="GOOGLE_CLOUD_PROJECT"):
         VertexAIModelClient("gemini-3.5-flash", project=None)._configure_auth()
+
+
+def test_an_injected_key_is_used_when_the_environment_has_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: local.env is parsed into Settings and never exported to os.environ.
+
+    A client that only consulted the environment reported "GEMINI_API_KEY is not set" to
+    users who had configured it correctly.
+    """
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    client = GeminiAIStudioClient("gemini-3.5-flash", api_key="injected-not-a-real-secret")
+    client._configure_auth()
+
+    import os
+
+    assert os.environ["GOOGLE_API_KEY"] == "injected-not-a-real-secret"
+    assert os.environ["GOOGLE_GENAI_USE_VERTEXAI"] == "0"
+
+
+def test_an_injected_secretstr_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    from pydantic import SecretStr
+
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    client = GeminiAIStudioClient("gemini-3.5-flash", api_key=SecretStr("secret-not-a-real-secret"))
+    client._configure_auth()
+
+    import os
+
+    assert os.environ["GOOGLE_API_KEY"] == "secret-not-a-real-secret"
+
+
+def test_an_empty_injected_key_falls_back_to_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pydantic import SecretStr
+
+    monkeypatch.setenv("GEMINI_API_KEY", "from-env-not-a-real-secret")
+    client = GeminiAIStudioClient("gemini-3.5-flash", api_key=SecretStr(""))
+    client._configure_auth()
+
+    import os
+
+    assert os.environ["GOOGLE_API_KEY"] == "from-env-not-a-real-secret"
+
+
+def test_the_container_hands_the_settings_key_to_the_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The wiring, not just the client: build_model_client must pass the key through."""
+    from verity.config import Settings
+    from verity.container import build_model_client
+
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    settings = Settings(env="local", gemini_api_key="wired-not-a-real-secret", _env_file=None)  # type: ignore[call-arg]
+    client = build_model_client(settings)
+    assert isinstance(client, GeminiAIStudioClient)
+    client._configure_auth()
+
+    import os
+
+    assert os.environ["GOOGLE_API_KEY"] == "wired-not-a-real-secret"

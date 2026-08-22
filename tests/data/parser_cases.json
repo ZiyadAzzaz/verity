@@ -2,23 +2,51 @@
   {
     "name": "arxiv_pdf_table",
     "url": "https://arxiv.org/abs/1512.03385",
-    "expected_metric_contains": "top-5",
-    "expected_value": 3.57,
-    "expected_dataset_contains": "ImageNet"
+    "source_type": "arxiv",
+    "expect_repository": false,
+    "note": "Deep Residual Learning headlines several numbers. 3.57% is the ensemble error on the ImageNet *test* set; 4.49% and 21.43% are ResNet-152 single-model *validation* errors. All three are correct extractions, and a single-model number is arguably the better choice given the parser is asked for something reproducible. Pinning one of them would test the model's taste, not its correctness.",
+    "acceptable": [
+      {
+        "which": "ensemble top-5 test error",
+        "metric_contains": "top-5",
+        "value": 3.57,
+        "dataset_contains": "ImageNet"
+      },
+      {
+        "which": "ResNet-152 single-model top-5 validation error",
+        "metric_contains": "top-5",
+        "value": 4.49,
+        "dataset_contains": "ImageNet"
+      },
+      {
+        "which": "ResNet-152 single-model top-1 validation error",
+        "metric_contains": "top-1",
+        "value": 21.43,
+        "dataset_contains": "ImageNet"
+      }
+    ]
   },
   {
     "name": "github_readme_benchmark",
     "url": "https://github.com/facebookresearch/detr",
-    "expected_metric_contains": "AP",
-    "expected_value": 42.0,
-    "expected_dataset_contains": "COCO"
+    "source_type": "github",
+    "expect_repository": true,
+    "note": "The DETR Model Zoo table has one clearly headline row, so the specific value is worth pinning here.",
+    "acceptable": [
+      {
+        "which": "DETR R50, 500-epoch schedule, box AP",
+        "metric_contains": "AP",
+        "value": 42.0,
+        "dataset_contains": "COCO"
+      }
+    ]
   },
   {
     "name": "vendor_claim_page",
     "url": "https://www.nvidia.com/en-us/data-center/h100/",
-    "expected_metric_contains": "performance",
-    "expected_value": 4.0,
-    "expected_dataset_contains": "AI"
+    "source_type": "vendor",
+    "expect_repository": false,
+    "note": "A live marketing page carrying a dozen different speedup claims (4X training, 5X Llama 2 70B, 30X Megatron 530B inference, ...) which NVIDIA revises over time. Two consecutive runs legitimately extracted different ones. Pinning a value here would test NVIDIA's copywriting, not Verity, so only the contract and grounding checks are enforced.",
+    "acceptable": []
   }
 ]
-

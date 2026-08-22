@@ -3,9 +3,9 @@
     Create the agent-dev environment and the Verity sandbox image.
 
 .DESCRIPTION
-    Prefers conda (the documented setup: `conda create -n agent-dev python=3.11`). If
-    conda is not installed, falls back to a plain Python 3.11 venv in .venv so the local
-    pipeline is still reachable — the code has no conda dependency, only a 3.11 one.
+    Prefers conda (the documented setup: `conda create -n agent-dev python=3.11`). If no
+    conda installation can be found, falls back to a plain Python 3.11 venv in .venv —
+    the code has no conda dependency, only a 3.11 one.
 
     Also builds the sandbox runtime image when Docker is running. The Environment Agent
     builds it on demand too; doing it here just moves a slow first run out of the demo.
@@ -17,21 +17,29 @@ param(
 $ErrorActionPreference = "Stop"
 $environmentName = "agent-dev"
 $repoRoot = Split-Path -Parent $PSScriptRoot
+. "$PSScriptRoot\_python.ps1"
 
-if (Get-Command conda -ErrorAction SilentlyContinue) {
-    $existing = conda env list --json | ConvertFrom-Json
-    $names = $existing.envs | ForEach-Object { Split-Path $_ -Leaf }
-    if ($names -notcontains $environmentName) {
-        conda create -n $environmentName python=3.11 -y
+$condaRoot = Find-CondaRoot
+if ($condaRoot) {
+    $conda = Join-Path $condaRoot "Scripts\conda.exe"
+    Write-Host "Found conda at $conda"
+    $envPython = Join-Path $condaRoot "envs\$environmentName\python.exe"
+    if (-not (Test-Path $envPython)) {
+        Write-Host "Creating the $environmentName environment..."
+        & $conda create -n $environmentName python=3.11 -y
+        if ($LASTEXITCODE -ne 0) { throw "conda create failed" }
     }
-    conda run -n $environmentName python -m pip install -r "$repoRoot\requirements.txt"
-    conda run -n $environmentName python -m pip check
+    if (-not (Test-Path $envPython)) { throw "$environmentName has no python.exe" }
+    & $envPython -m pip install --upgrade pip
+    & $envPython -m pip install -r "$repoRoot\requirements.txt"
+    if ($LASTEXITCODE -ne 0) { throw "dependency install failed" }
+    & $envPython -m pip check
     Write-Host "agent-dev is ready. Activate it with: conda activate agent-dev"
-    $python = "conda run -n $environmentName python"
 } else {
-    Write-Host "conda was not found; falling back to a Python 3.11 venv in .venv"
-    $launcher = Get-Command py -ErrorAction SilentlyContinue
-    if (-not $launcher) { throw "Install Python 3.11 (or conda) first." }
+    Write-Host "No conda installation found; falling back to a Python 3.11 venv in .venv"
+    if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
+        throw "Install Python 3.11 (or conda) first."
+    }
     if (-not (Test-Path "$repoRoot\.venv")) {
         py -3.11 -m venv "$repoRoot\.venv"
     }
@@ -39,12 +47,11 @@ if (Get-Command conda -ErrorAction SilentlyContinue) {
     & "$repoRoot\.venv\Scripts\python.exe" -m pip install -r "$repoRoot\requirements.txt"
     & "$repoRoot\.venv\Scripts\python.exe" -m pip check
     Write-Host "Environment ready. Activate it with: .\.venv\Scripts\Activate.ps1"
-    $python = "$repoRoot\.venv\Scripts\python.exe"
 }
 
-if (-not (Test-Path "$repoRoot\.env")) {
-    Copy-Item "$repoRoot\.env.example" "$repoRoot\.env"
-    Write-Host "Created .env — add your GEMINI_API_KEY from https://aistudio.google.com/"
+if (-not (Test-Path "$repoRoot\local.env")) {
+    Copy-Item "$repoRoot\.env.example" "$repoRoot\local.env"
+    Write-Host "Created local.env - add your GEMINI_API_KEY from https://aistudio.google.com/"
 }
 
 if ($SkipImage) { return }
