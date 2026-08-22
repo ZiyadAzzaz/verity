@@ -131,7 +131,7 @@ def main() -> int:
         print("  - GEMINI_API_KEY in .env")
     if environment and not docker:
         print("  - a responding Docker daemon")
-    print("\nSee docs/PIVOT-STATUS.md section 5 for the details.\n")
+    print("\nSee docs/HANDOVER.md for setup details.\n")
     return 1
 
 

@@ -24,6 +24,8 @@ the one module that picks concrete backends.
 
 See [the architecture and trust boundaries](docs/architecture.md) or open
 `verity-architecture.html` for the presentation diagram.
+[docs/HANDOVER.md](docs/HANDOVER.md) is the current project status: what is verified,
+what is not, and the evidence behind each claim.
 
 ## What a result means
 
