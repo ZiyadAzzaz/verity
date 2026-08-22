@@ -49,9 +49,9 @@ if ($condaRoot) {
     Write-Host "Environment ready. Activate it with: .\.venv\Scripts\Activate.ps1"
 }
 
-if (-not (Test-Path "$repoRoot\local.env")) {
-    Copy-Item "$repoRoot\.env.example" "$repoRoot\local.env"
-    Write-Host "Created local.env - add your GEMINI_API_KEY from https://aistudio.google.com/"
+if (-not (Test-Path "$repoRoot\.env")) {
+    Copy-Item "$repoRoot\.env.example" "$repoRoot\.env"
+    Write-Host "Created .env - add your GEMINI_API_KEY from https://aistudio.google.com/"
 }
 
 if ($SkipImage) { return }

@@ -2,7 +2,7 @@
 
     python scripts/check_setup.py
 
-Checks the Python environment, the local.env key, and the Docker daemon, then prints a
+Checks the Python environment, the .env key, and the Docker daemon, then prints a
 short report that is safe to share — the API key is never printed, only whether one is
 present and how long it is.
 
@@ -77,7 +77,7 @@ def check_key() -> bool:
     settings = Settings()
     if not settings.gemini_api_key:
         print(f"{NO} GEMINI_API_KEY is empty")
-        print(f"         Add it to {ROOT / 'local.env'} - free key: https://aistudio.google.com/")
+        print(f"         Add it to {ROOT / '.env'} - free key: https://aistudio.google.com/")
         return False
     length = len(settings.gemini_api_key.get_secret_value())
     print(f"{OK} GEMINI_API_KEY is set ({length} characters)")
@@ -128,7 +128,7 @@ def main() -> int:
     if not environment:
         print("  - Python 3.11 environment (scripts/bootstrap.ps1)")
     if environment and not key:
-        print("  - GEMINI_API_KEY in local.env")
+        print("  - GEMINI_API_KEY in .env")
     if environment and not docker:
         print("  - a responding Docker daemon")
     print("\nSee docs/PIVOT-STATUS.md section 5 for the details.\n")

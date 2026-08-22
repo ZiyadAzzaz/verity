@@ -132,7 +132,7 @@ def test_vertex_client_requires_a_project() -> None:
 def test_an_injected_key_is_used_when_the_environment_has_none(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Regression: local.env is parsed into Settings and never exported to os.environ.
+    """Regression: .env is parsed into Settings and never exported to os.environ.
 
     A client that only consulted the environment reported "GEMINI_API_KEY is not set" to
     users who had configured it correctly.

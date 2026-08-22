@@ -67,7 +67,7 @@ socket, `--entrypoint` always overridden so a tampered image cannot choose what 
 | `verity/interfaces.py` | The seam: `JobStore`, `JobQueue`, `ModelClient`, `SandboxBackend`, `SandboxUnavailableError` |
 | `verity/sqlite_store.py` | Durable local job store over one `verity.db` |
 | `Dockerfile.runner` | Sandbox runtime image — runtimes only, no Verity code, no entrypoint |
-| `local.env` | Your environment file (git-ignored; loads automatically, wins over `.env`) |
+| `.env` | Your environment file (git-ignored; the single source of environment config) |
 | `scripts/check_setup.py` | One command: is this machine ready? Never prints the key |
 | `scripts/_python.ps1` | Interpreter resolution — finds conda properly (see §3.1) |
 | `scripts/validate_docker_isolation.py` | 7 container escape attempts; exit 0 = all failed |
@@ -134,7 +134,7 @@ its services with no space. One fault, two symptoms, and I chased both separatel
 
 ### 3.4 🔴 Real bug — the model client could never see your key
 
-`GeminiAIStudioClient` read `os.environ["GEMINI_API_KEY"]`. But `local.env` is parsed by
+`GeminiAIStudioClient` read `os.environ["GEMINI_API_KEY"]`. But `.env` is parsed by
 pydantic-settings into `Settings` and **never exported to the environment**. Anyone who
 configured the key correctly still got *"GEMINI_API_KEY is not set"*.
 
@@ -260,17 +260,24 @@ Normally I branch before committing. The repo had **zero commits**, so this was 
 repository's first — there was no `main` history to protect, and a first commit on a side
 branch leaves `main` unborn. Everything after this branches normally.
 
-### 5.5 `local.env` takes precedence over `.env`
+### 5.5 ~~`local.env` takes precedence over `.env`~~ — resolved, consolidated
 
-You asked for a `local.env`; pydantic-settings only reads files it's told about, so I wired
-`env_file=(".env", "local.env")` with `local.env` winning. **Review if** you'd rather keep
-the conventional single `.env`.
+**Reviewed and reversed.** A second env file with silent precedence is unexplained friction
+for anyone reading the repo for reproduction steps. `local.env` has been folded into `.env`
+(key migrated intact), the `env_file=(".env", "local.env")` tuple in `verity/config.py` is
+back to a plain `".env"`, and every reference in the scripts, library messages, and
+`bootstrap.ps1` now says `.env`. One env file, no precedence rules.
 
-### 5.6 `host_subprocess` backend still exists
+### 5.6 `host_subprocess` backend still exists — now test-enforced
 
 It runs untrusted code on the host with no isolation. Kept because it is the body of the
-Cloud Run sandbox container, where the container *is* the boundary. It warns on selection and
-production rejects it. **Review if** you'd rather delete it entirely for safety.
+Cloud Run sandbox container, where the Cloud Run container *is* the boundary.
+
+**The production rejection is now proven by a test, not just documented:**
+`tests/test_production_guardrails.py` asserts that a production configuration selecting
+`host_subprocess` fails validation, along with every other way of weakening the boundary
+(docker in production, the whole local profile, each missing secret). 13 tests. The
+development escape hatch is separately asserted to still work.
 
 ### 5.7 Sandbox containers are `--read-only` by default
 
@@ -309,7 +316,7 @@ docker build -f Dockerfile.runner -t verity-sandbox-runner:1 .
 
 ### ✅ Already done — nothing needed
 
-- `GEMINI_API_KEY` is in `local.env` and working (verified by a live run).
+- `GEMINI_API_KEY` is in `.env` and working (verified by a live run).
 - `agent-dev` is installed and green.
 - Everything stays local; no git remote is configured.
 

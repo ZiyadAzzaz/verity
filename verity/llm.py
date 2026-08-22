@@ -233,7 +233,7 @@ class _AdkGeminiClient(ModelClient):
 class GeminiAIStudioClient(_AdkGeminiClient):
     """Gemini through a Google AI Studio API key — the local-first model path.
 
-    The key is *injected*, not scavenged from the process environment. ``local.env`` is
+    The key is *injected*, not scavenged from the process environment. ``.env`` is
     read by pydantic-settings into :class:`~verity.config.Settings` and is never exported
     to ``os.environ``, so a client that only consulted the environment would not find a
     key the user had correctly configured. ``verity.container`` passes it in; the
@@ -272,7 +272,7 @@ class GeminiAIStudioClient(_AdkGeminiClient):
         if not key:
             raise RuntimeError(
                 "GEMINI_API_KEY is not set. Create a free key at https://aistudio.google.com/"
-                " and put it in local.env — no billing account is required."
+                " and put it in .env — no billing account is required."
             )
         # google-genai reads these; setting both keeps ADK off the Vertex code path.
         os.environ["GOOGLE_API_KEY"] = key

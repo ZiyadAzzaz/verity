@@ -17,7 +17,7 @@ a live marketing page whose numbers change, layer 3 is empty and layers 1-2 carr
 
     python scripts/validate_parser_real.py
 
-Requires GEMINI_API_KEY in local.env. Does not require Docker.
+Requires GEMINI_API_KEY in .env. Does not require Docker.
 """
 
 from __future__ import annotations
@@ -111,14 +111,12 @@ def match_known_claim(parsed: ParsedClaim, case: dict[str, Any]) -> tuple[bool, 
 
 async def main() -> None:
     settings = get_settings()
-    # The key normally lives in local.env, which pydantic-settings reads directly rather
+    # The key normally lives in .env, which pydantic-settings reads directly rather
     # than exporting into os.environ - so check the settings object, not the environment.
     if not (
         settings.gemini_api_key or os.getenv("GOOGLE_API_KEY") or settings.google_cloud_project
     ):
-        raise SystemExit(
-            "Set GEMINI_API_KEY in local.env, or authenticated Vertex AI variables, first."
-        )
+        raise SystemExit("Set GEMINI_API_KEY in .env, or authenticated Vertex AI variables, first.")
     root = Path(__file__).resolve().parents[1]
     cases = json.loads((root / "tests/data/parser_cases.json").read_text(encoding="utf-8"))
 

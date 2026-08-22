@@ -1,5 +1,4 @@
 .env
-local.env
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/

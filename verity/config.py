@@ -37,8 +37,7 @@ PROFILES: dict[str, tuple[StoreBackend, MessageBackend, SandboxBackendName, LLMB
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        # local.env is the developer-facing file and wins over .env when both exist.
-        env_file=(".env", "local.env"),
+        env_file=".env",
         env_file_encoding="utf-8",
         env_prefix="VERITY_",
         extra="ignore",
