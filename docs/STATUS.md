@@ -16,7 +16,7 @@
 | Live Gemini path | ✅ **Verified end to end** — 3 real sources, 2 real bugs found and fixed |
 | Docker sandbox | 🔴 **Never executed a container.** Daemon has not responded all session |
 | Cloud path | ⏸ Wired and selectable; unverified, waiting on credits |
-| Git | 1 commit (`1cd3949`) on `main`, local only. 11 modified + 3 new files uncommitted |
+| Git | 2 commits, local only. `17b364e` on branch `fix/live-gemini-and-conda-resolution` |
 
 **One thing blocks everything that remains: the Docker daemon.** See [§6](#6-what-i-need-from-you).
 
@@ -118,12 +118,19 @@ from a task runner.
 I stopped **one** of **three**. Two were still running when you were about to shut down. All
 stopped now.
 
-### 3.3 Corrupted pip cache, not a flaky network
+### 3.3 The pip failure was a full disk — I diagnosed it wrong
 
 `pip install` into `agent-dev` failed twice with byte-identical
-`IncompleteRead(214519 bytes read, 38151 more expected)`. Identical numbers across attempts
-meant a truncated wheel in pip's cache being re-read — `--retries` could never help.
-`--no-cache-dir` fixed it. Worth remembering if it recurs.
+`IncompleteRead(214519 bytes read, 38151 more expected)`. I concluded a truncated wheel in
+pip's cache and moved on when `--no-cache-dir` fixed it.
+
+**That diagnosis was wrong.** The C: drive had **0 MB free**. The download was failing
+because there was nowhere to write it, and `--no-cache-dir` "fixed" it only by not writing
+2.6 GB of cache to a full disk. The identical byte counts came from hitting the same wall at
+the same point, not from re-reading the same corrupt file.
+
+The same full disk is the root cause of the Docker failure in §6 — a WSL2 VM cannot start
+its services with no space. One fault, two symptoms, and I chased both separately.
 
 ### 3.4 🔴 Real bug — the model client could never see your key
 
@@ -277,22 +284,22 @@ mount — one line.
 
 ### 🔴 The only blocker: Docker
 
-`docker info` has not responded once all session — every call hangs past 60s. Docker Desktop
-is running and the `docker-desktop` WSL distro reports `Running`, which almost always means
-the app is sitting on an onboarding screen that blocks the daemon socket.
+`docker info` has not responded once all session. **Diagnosed from Docker Desktop's own
+logs** — it is *not* an onboarding screen, which is what I wrongly assumed earlier:
 
-1. Open the **Docker Desktop** window.
-2. Accept the service agreement; complete or skip sign-in.
-3. Wait for **"Engine running"** (bottom-left).
-4. Verify — this must return in seconds, not hang:
-
-```bash
-docker info --format "{{.ServerVersion}}"
+```
+apiproxy  << GET /_ping Internal Server Error: context deadline exceeded (15.0s)
+GET failed with Get "http://unix/forwards/list": context deadline exceeded
+still waiting to toggle VM Otel collector settings in the VM after 13m0.6s
 ```
 
-If it still hangs, tell me **exactly what the Docker Desktop window shows** and I'll work
-around it. Common culprits: WSL2 needs updating (`wsl --update`), virtualisation disabled in
-BIOS, or a pending Windows feature reboot.
+The named pipes exist and accept connections, the CLI context is correct, and the
+`docker-desktop` WSL distro reports `Running` — but nothing inside that VM answers. The
+Windows backend cannot reach the Linux engine. That is why calls hang rather than fail fast.
+
+**Follow [DOCKER-FIX.md](DOCKER-FIX.md)** — seven ordered steps, starting with a full
+tray-quit plus `wsl --shutdown` and a `wsl --update`, escalating to Troubleshoot → Clean /
+Purge data and then a factory reset. Stop as soon as `docker info` returns.
 
 Optional, saves several minutes on the first job:
 
