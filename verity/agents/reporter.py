@@ -10,6 +10,7 @@ from verity.models import (
     ParsedClaim,
     Verdict,
     VerdictStatus,
+    failure_excerpt,
 )
 
 
@@ -62,6 +63,16 @@ class ReporterAgent:
         )
         if result.metric_evidence:
             evidence.append("Metric output: " + result.metric_evidence[:1500])
+        # One excerpt per attempt, taken from the tail and with setup chatter dropped, so a
+        # reader can check the stated diagnosis against the output it refers to.
+        for attempt in attempts:
+            if not attempt.outcome.succeeded:
+                evidence.append(
+                    f"Attempt {attempt.attempt} ({attempt.outcome.phase}, exit "
+                    f"{attempt.outcome.exit_code}): {failure_excerpt(attempt.outcome)}"
+                )
+        if not result.succeeded and not attempts:
+            evidence.append(f"Failure ({result.phase}): {failure_excerpt(result)}")
         if not result.succeeded:
             status = VerdictStatus.COULD_NOT_VERIFY
             confidence = Confidence.HIGH if len(attempts) == 3 else Confidence.MEDIUM

@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from verity.models import ParsedClaim, Verdict
+from verity.models import ParsedClaim, Verdict, VerdictStatus
 
 REPO_NAME = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
@@ -88,10 +88,32 @@ def render_issue(verdict: Verdict, parsed_claim: ParsedClaim, job_id: str) -> tu
         )
         or "- No debug retry was required."
     )
-    fixes = "\n".join(f"- {fix}" for fix in verdict.fixes_applied) or "- None."
-    evidence = (
-        "\n".join(f"- {item}" for item in verdict.evidence) or "- No metric evidence captured."
-    )
+    # "Fixes applied: None" read as "nothing was ever tried" while the debug trail directly
+    # above it described a runner script being written. The heading now states whether any
+    # fix actually worked, and the list covers everything attempted.
+    if verdict.fixes_applied:
+        succeeded = verdict.status is VerdictStatus.VERIFIED
+        fixes_heading = (
+            "Fixes applied" if succeeded else "Fixes attempted (none produced a reproduction)"
+        )
+        fixes = "\n".join(f"- {fix}" for fix in verdict.fixes_applied)
+    else:
+        fixes_heading = "Fixes attempted"
+        fixes = "- None. No patch was proposed or applied."
+
+    # Multi-line output goes in a <details> block so the default view stays readable. Setup
+    # chatter is already stripped upstream by failure_excerpt.
+    rendered: list[str] = []
+    for item in verdict.evidence:
+        if "\n" in item or len(item) > 220:
+            label, _, detail = item.partition(": ")
+            rendered.append(
+                f"<details><summary><code>{label or 'output'}</code></summary>\n\n"
+                f"```\n{(detail or item).strip()}\n```\n\n</details>"
+            )
+        else:
+            rendered.append(f"- {item}")
+    evidence = "\n".join(rendered) or "- No metric evidence captured."
     body = f"""## Verity verdict
 
 | Field | Result |
@@ -116,7 +138,7 @@ def render_issue(verdict: Verdict, parsed_claim: ParsedClaim, job_id: str) -> tu
 
 {attempts}
 
-### Fixes applied
+### {fixes_heading}
 
 {fixes}
 

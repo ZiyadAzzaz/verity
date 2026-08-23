@@ -220,6 +220,48 @@ def looks_environment_incompatible(result: EnvironmentResult) -> bool:
     return any(marker in haystack for marker in _BLOCKED_NETWORK_MARKERS)
 
 
+#: Lines that are setup chatter rather than evidence of anything. Git writes clone progress
+#: to stderr, and it is voluminous enough to crowd the real error out of any head-truncated
+#: excerpt - which is exactly what happened in verity-reports#4.
+_NOISE_PREFIXES = (
+    "cloning into",
+    "updating files:",
+    "receiving objects:",
+    "resolving deltas:",
+    "remote: counting objects",
+    "remote: compressing objects",
+    "remote: total",
+    "remote: enumerating objects",
+)
+
+
+def _is_setup_noise(line: str) -> bool:
+    stripped = line.strip().lower()
+    return not stripped or any(stripped.startswith(prefix) for prefix in _NOISE_PREFIXES)
+
+
+def failure_excerpt(result: EnvironmentResult, limit: int = 1200) -> str:
+    """The part of a failed run someone could actually check the diagnosis against.
+
+    Two things went wrong in the filed Issue this exists to fix. Git clone progress dominated
+    the output, and the excerpt was taken from the *head*, so the section contained several
+    hundred lines of "Updating files: 52%" and none of the traceback the diagnosis referenced.
+
+    Errors appear at the end, so this takes the tail, and drops progress chatter first so the
+    budget is spent on signal. stderr is preferred over stdout because that is where failures
+    surface, but stdout is used when stderr carries nothing but noise - pytest reports
+    "no tests collected" on stdout.
+    """
+    for stream in (result.stderr, result.stdout):
+        lines = [line for line in stream.splitlines() if not _is_setup_noise(line)]
+        if not lines:
+            continue
+        excerpt = "\n".join(lines)[-limit:]
+        if excerpt.strip():
+            return excerpt.strip()
+    return f"{result.phase} failed with exit code {result.exit_code}"
+
+
 class AttemptLog(BaseModel):
     model_config = STRICT
 

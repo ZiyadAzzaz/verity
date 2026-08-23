@@ -19,6 +19,7 @@ from verity.models import (
     PatchOperation,
     Verdict,
     VerdictStatus,
+    failure_excerpt,
     looks_environment_incompatible,
 )
 from verity.telemetry import agent_span
@@ -192,7 +193,7 @@ class VerificationPipeline:
                         "the claim."
                     ),
                     attempts=attempts,
-                    evidence=[result.error_text[:1500]],
+                    evidence=[f"Final failure ({result.phase}): {failure_excerpt(result)}"],
                 )
                 return
 
@@ -250,13 +251,22 @@ class VerificationPipeline:
         stays None. Nothing was measured, so nothing may be reported - the same rule that
         governs ``could_not_verify``, applied to outcomes that are not it.
         """
+        recorded = attempts or []
+        # Populate fixes from the attempts, exactly as ReporterAgent.run does. Omitting this
+        # made the Issue say "Fixes applied: None" directly above a debug trail describing a
+        # runner script being written - the summary contradicting its own evidence.
         verdict = Verdict(
             status=status,
             confidence=Confidence.HIGH,
             claim=parsed.claim,
             actual_value=None,
             summary=summary,
-            attempts=attempts or [],
+            fixes_applied=[
+                f"{operation.kind} {operation.path}"
+                for attempt in recorded
+                for operation in attempt.proposal.operations
+            ],
+            attempts=recorded,
             evidence=evidence or [],
         )
         await self._store.update_job(job_id, status=JobStatus.REPORTING)
