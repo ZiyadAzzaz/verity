@@ -22,16 +22,32 @@ Verity runs on either of two infrastructures, chosen by a single setting:
 agents depend only on the interfaces in `verity/interfaces.py`; `verity/container.py` is
 the one module that picks concrete backends.
 
-See [the architecture and trust boundaries](docs/architecture.md) or open
-`verity-architecture.html` for the presentation diagram.
-**[docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md) — run the pipeline yourself in ten minutes, no
-API key needed.** Two claims ship pre-verified, so a real verdict comes back instantly
-without a single model call.
+## See it actually work
 
-[docs/HANDOVER.md](docs/HANDOVER.md) is the current project status, and
-[docs/PRE-SUBMISSION-AUDIT.md](docs/PRE-SUBMISSION-AUDIT.md) is a skeptical pass over
-every claim in this README with the evidence behind each one — including what is *not*
-verified.
+**A real verdict Verity filed on its own:
+[verity-reports#1](https://github.com/ZiyadAzzaz/verity-reports/issues/1).**
+
+It tried to reproduce the ResNet paper's 4.49% top-5 error rate, failed after three bounded
+repair attempts, and reported `Reproduced: not captured` — an empty cell where a fabricated
+number would otherwise sit. The Debug Agent's own reasoning, quoted from that Issue:
+
+> *"Fabricating the metric or replacing the evaluation with a constant is strictly prohibited
+> under the security and honesty rules. Therefore, no defensible fix can be proposed."*
+
+**Run it yourself in ten minutes, without an API key:
+[docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md).** Two claims ship pre-verified in the repository, so
+a genuine verdict returns instantly without a single model call.
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md) | Clone and run it yourself, no API key |
+| [docs/architecture.md](docs/architecture.md) | Both profiles, trust boundaries, data model |
+| `verity-architecture.html` | The presentation diagram — open in a browser |
+| [docs/PRE-SUBMISSION-AUDIT.md](docs/PRE-SUBMISSION-AUDIT.md) | Every claim here re-checked, **including what is not verified** |
+| [docs/PROJECT-ANALYSIS.md](docs/PROJECT-ANALYSIS.md) | What was tested, how, and the results |
+| [docs/HANDOVER.md](docs/HANDOVER.md) | Current status and every path that matters |
 
 ## What a result means
 
