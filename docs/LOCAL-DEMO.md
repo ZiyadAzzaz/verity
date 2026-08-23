@@ -105,6 +105,12 @@ agent traces, and claim-memory entries ship in this repository at
 |---|---|---|---|
 | 1 | `https://arxiv.org/abs/1512.03385` | top-5 error rate = **4.49%** on ImageNet 2012 validation | `could_not_verify` |
 | 2 | `https://arxiv.org/abs/1706.03762` | BLEU score = **28.4** on WMT 2014 English-to-German | `could_not_verify` |
+| 3 | `https://github.com/psf/requests` | HTTP status code = **200** on an httpbin endpoint | **`verified`** — reproduced 200.0 |
+| 4 | `https://github.com/ZiyadAzzaz/Stroke-Data-Analysis` | number of features = 11 | **`no_verifiable_claim_found`** — nothing executed |
+
+Four claims covering **three different outcomes**, so you can see the full range without an
+API key: a claim that reproduces, two that honestly do not, and one the source never asserted
+as a result in the first place.
 
 **Submitting either of these hits the local cache and makes no Gemini API call at all.**
 Anything else attempts a real verification and needs a key.
@@ -198,8 +204,7 @@ metric, the same honest refusal.
 
 ### Step 5 — see a claim that *does* verify
 
-The cache ships the failures because they are the interesting case, but the positive path
-works too. From a real run against `https://github.com/psf/requests`:
+Submit `https://github.com/psf/requests`. It ships pre-verified too, so this is also instant:
 
 ```
 claim      : HTTP status code = 200 on https://httpbin.org/basic-auth/user/pass
@@ -211,7 +216,12 @@ summary    : The reproduced HTTP status code (200) is within the declared 2%
 ```
 
 Verity says **verified** when something reproduces and **could_not_verify** when it does not.
-Reproducing that one yourself needs an API key (§7) — it clones and installs the repository.
+
+And submit `https://github.com/ZiyadAzzaz/Stroke-Data-Analysis` for the third case. That
+repository's only number is a feature count — a description of its input, not a result anyone
+asserted. Verity returns `no_verifiable_claim_found`, **runs no container at all**, and the
+trace is five events instead of thirteen. Reporting that as a failed reproduction would have
+claimed an attempt that never happened.
 
 ### Prefer the terminal?
 
