@@ -28,8 +28,10 @@ See [the architecture and trust boundaries](docs/architecture.md) or open
 API key needed.** Two claims ship pre-verified, so a real verdict comes back instantly
 without a single model call.
 
-[docs/HANDOVER.md](docs/HANDOVER.md) is the current project status: what is verified,
-what is not, and the evidence behind each claim.
+[docs/HANDOVER.md](docs/HANDOVER.md) is the current project status, and
+[docs/PRE-SUBMISSION-AUDIT.md](docs/PRE-SUBMISSION-AUDIT.md) is a skeptical pass over
+every claim in this README with the evidence behind each one — including what is *not*
+verified.
 
 ## What a result means
 

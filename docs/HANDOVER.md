@@ -12,14 +12,19 @@ into this document and kept only for history.
 |---|---|
 | Local-first pivot | ✅ Code complete |
 | Static analysis | ✅ `ruff` · `ruff format` · `mypy --strict` |
-| Unit tests | ✅ **109 passed**, 9 deselected (Docker suite) |
+| Test suite | ✅ **118 passed**, nothing skipped (includes 9 container tests) |
 | Live Gemini | ✅ **Verified** — 3 real sources, 2 real bugs found and fixed |
-| Docker daemon | ✅ **Working** — `29.7.2 linux 8cpu` after relocating to `E:\wsl` |
-| Sandbox image | 🟡 Building now (`verity-sandbox-runner:1`) |
-| Gates 1–5 | 🔴 Not yet run — blocked on the image finishing |
-| Real GitHub Issue | 🔴 Not filed — needs a token from you |
-| Cloud path | ⏸ Wired and selectable; unverified, waiting on credits |
-| Git | 5 commits, **local only**, branch `fix/live-gemini-and-conda-resolution` |
+| Docker daemon | ✅ **Working** — `29.7.2 linux 8cpu`, data relocated to `E:\wsl` |
+| Sandbox image | ✅ Built — `verity-sandbox-runner:1`, 1.25 GB |
+| Gate 1 — isolation | ✅ **8/8 escape attempts failed** on real containers |
+| Gate 2 — container tests | ✅ 9 passed |
+| Gate 3 — broken-repo loop | ✅ Exactly 3 attempts → `could_not_verify`, no value invented |
+| Gate 4/5 — pipeline | 🟡 Partial — 2 sources to terminal verdict, rest quota-limited |
+| Real GitHub Issue | ✅ **Filed** — [verity-reports#1](https://github.com/ZiyadAzzaz/verity-reports/issues/1) |
+| Dedup / claim memory | ✅ Cached re-submission in **0.000s** |
+| Cloud path | 🔴 **Never run** — waiting on credits. The submission risk |
+| Repos | ✅ Both **public**: `verity`, `verity-reports` |
+| Git | 17 commits on `main`, pushed, **zero AI attribution in history** |
 
 ---
 
@@ -53,7 +58,7 @@ and Windows silently serves the data from E:. It survives Docker updates.
 
 | Drive | Free | Note |
 |---|---|---|
-| C: | **2.33 GB** of 197.6 GB | was **0.00 GB** — still tight |
+| C: | **6.9 GB** of 197.6 GB | was **0.00 GB**; pip cache and Temp reclaimed |
 | D: | 55.9 GB | holds Anaconda |
 | E: | 214.3 GB | holds the repo and Docker. **5400rpm HDD, not SSD** |
 
