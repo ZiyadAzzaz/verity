@@ -278,3 +278,99 @@ async def test_a_genuine_failure_is_still_could_not_verify(tmp_path, parsed_clai
     assert finished.verdict.status == VerdictStatus.COULD_NOT_VERIFY
     assert finished.verdict.actual_value is None
     store.close()
+
+
+# --- every terminal outcome must file its artifact ----------------------------------------
+# Proven with a recording double rather than a live GitHub write: the question is whether the
+# pipeline *calls* the publisher, and a double answers that exactly as well while touching
+# nothing public.
+
+
+@dataclass
+class RecordingPublisher:
+    """Stands in for GitHubIssuePublisher and remembers what it was asked to file."""
+
+    calls: list = field(default_factory=list)
+    url: str = "https://github.com/ZiyadAzzaz/verity-reports/issues/999"
+
+    async def publish(self, parsed_claim, title: str, body: str) -> str:
+        self.calls.append({"title": title, "body": body, "url": str(parsed_claim.source_url)})
+        return self.url
+
+
+def build_with_publisher(store, parsed, sandbox, debugger, publisher):
+    return VerificationPipeline(
+        store=store,
+        parser=FixedParser(parsed),
+        environment=sandbox,
+        debugger=debugger,
+        reporter=ReporterAgent(publisher),
+    )
+
+
+NETWORK_BLOCKED = EnvironmentResult(
+    succeeded=False,
+    exit_code=1,
+    phase="evaluate",
+    stderr="socket.gaierror: [Errno -3] Temporary failure in name resolution",
+    duration_seconds=2.0,
+)
+REAL_FAILURE = EnvironmentResult(
+    succeeded=False,
+    exit_code=1,
+    phase="evaluate",
+    stderr="AssertionError: expected 0.92, measured 0.71",
+    duration_seconds=2.0,
+)
+SUCCESS = EnvironmentResult(
+    succeeded=True, exit_code=0, phase="metric", actual_value=90.0, duration_seconds=1.0
+)
+
+
+@pytest.mark.parametrize(
+    "significance,result,expected",
+    [
+        (ClaimSignificance.INCIDENTAL_STATISTIC, SUCCESS, VerdictStatus.NO_VERIFIABLE_CLAIM_FOUND),
+        (ClaimSignificance.HEADLINE_CLAIM, NETWORK_BLOCKED, VerdictStatus.ENVIRONMENT_INCOMPATIBLE),
+        (ClaimSignificance.HEADLINE_CLAIM, REAL_FAILURE, VerdictStatus.COULD_NOT_VERIFY),
+        (ClaimSignificance.HEADLINE_CLAIM, SUCCESS, VerdictStatus.VERIFIED),
+    ],
+    ids=["no_verifiable_claim", "environment_incompatible", "could_not_verify", "verified"],
+)
+async def test_every_outcome_files_an_issue_and_stores_its_url(
+    tmp_path, parsed_claim, significance, result, expected
+) -> None:
+    """The 'View detailed analysis' button is downstream of issue_url being set.
+
+    The two short-circuit outcomes bypass ReporterAgent.run entirely, so without this they
+    would silently never file - the button would appear for a verified claim and vanish for
+    a no_verifiable_claim_found one, with no obvious reason why.
+    """
+    store = SQLiteJobStore(tmp_path / "v.db")
+    parsed = parsed_claim.model_copy(update={"claim_significance": significance})
+    publisher = RecordingPublisher()
+    job, _ = await store.create_or_get(str(parsed.source_url))
+    await build_with_publisher(
+        store, parsed, CountingSandbox(result), CountingDebugger(), publisher
+    ).process(job.id)
+
+    finished = await store.get_job(job.id)
+    assert finished is not None and finished.verdict is not None
+    assert finished.verdict.status == expected
+    assert len(publisher.calls) == 1, f"{expected.value} must file exactly one Issue"
+    assert str(finished.verdict.issue_url) == publisher.url, "the URL must be stored, not lost"
+    assert expected.value in publisher.calls[0]["title"], "the title must name the outcome"
+    store.close()
+
+
+async def test_a_missing_token_degrades_without_losing_the_verdict(tmp_path, parsed_claim) -> None:
+    """With NoopIssuePublisher there is no artifact, but the verdict must still be complete."""
+    store = SQLiteJobStore(tmp_path / "v.db")
+    job, _ = await store.create_or_get(str(parsed_claim.source_url))
+    await build(store, parsed_claim, CountingSandbox(SUCCESS), CountingDebugger()).process(job.id)
+
+    finished = await store.get_job(job.id)
+    assert finished is not None and finished.verdict is not None
+    assert finished.verdict.status == VerdictStatus.VERIFIED
+    assert finished.verdict.issue_url is None, "no token means no artifact, and that is fine"
+    store.close()

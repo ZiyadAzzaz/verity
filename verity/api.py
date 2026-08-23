@@ -114,6 +114,11 @@ def create_app(
             "store": settings.store,
             "queue": settings.messaging,
             "sandbox": settings.sandbox,
+            # Which publisher is wired in. "noop" means completed jobs will not file an
+            # Issue and the UI will have no artifact to link to - a configuration state
+            # that is otherwise invisible until someone wonders where their button went.
+            "issue_publisher": "github" if settings.github_token else "noop",
+            "report_repo": settings.report_repo,
             "setup_error": setup_error,
         }
 
