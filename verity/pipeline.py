@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from pydantic import ValidationError
+
 from verity.agents import DebugAgent, EnvironmentAgent, ParserAgent, ReporterAgent
 from verity.interfaces import JobStore
-from verity.models import AttemptLog, JobStatus, PatchOperation
+from verity.models import AttemptLog, DebugProposal, JobStatus, PatchOperation
 from verity.telemetry import agent_span
 
 logger = logging.getLogger(__name__)
@@ -79,8 +81,41 @@ class VerificationPipeline:
                         "attempt_started",
                         {"attempt": attempt_number, "error_seen": result.error_text},
                     )
-                    with agent_span("debug", job_id, attempt=attempt_number):
-                        proposal = await self._debugger.run(parsed, result, patches, attempt_number)
+                    try:
+                        with agent_span("debug", job_id, attempt=attempt_number):
+                            proposal = await self._debugger.run(
+                                parsed, result, patches, attempt_number
+                            )
+                    except ValidationError as exc:
+                        # The model proposed something the safety contract refuses - a patch
+                        # path outside the cloned repository, an over-long operation list, a
+                        # malformed command. That is a *failed debug attempt*, not an
+                        # infrastructure fault: the boundary held and the loop should spend
+                        # the attempt and carry on, ending in an honest could_not_verify if
+                        # all three are used up. Letting it escape would abort the job with
+                        # no verdict at all, which reads as a crash rather than a refusal.
+                        rejected = DebugProposal(
+                            diagnosis=(
+                                f"Attempt {attempt_number} rejected: the proposed patch "
+                                f"violated Verity's safety contract and was not applied. "
+                                f"{exc.error_count()} validation error(s): "
+                                f"{'; '.join(str(e.get('msg', '')) for e in exc.errors()[:3])}"
+                            )[:4000],
+                        )
+                        attempt = AttemptLog(
+                            attempt=attempt_number,
+                            error_seen=result.error_text,
+                            proposal=rejected,
+                            outcome=result,
+                        )
+                        attempts.append(attempt)
+                        await self._trace(
+                            job_id,
+                            "debug",
+                            "attempt_rejected",
+                            attempt.model_dump(mode="json"),
+                        )
+                        continue
                     patches.extend(proposal.operations)
                     if proposal.replacement_command is not None:
                         command_override = proposal.replacement_command

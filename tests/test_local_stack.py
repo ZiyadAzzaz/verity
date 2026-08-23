@@ -211,3 +211,45 @@ async def test_a_queued_job_survives_a_restart_and_is_only_processed_once(
     await asyncio.gather(*(pipeline.process(response.job_id) for _ in range(3)))
     assert sandbox.calls == 1
     reopened.close()
+
+
+@dataclass
+class PathTraversingDebugger:
+    """Reproduces the real openai/whisper failure.
+
+    The Debug Agent proposed writing `../venv/pip.conf` — outside the cloned repository.
+    `PatchOperation` correctly refuses that, raising ValidationError. Before the fix, that
+    exception escaped the retry loop and killed the job with no verdict at all, which reads
+    as a crash rather than a refusal. The safety boundary was always working; the handling
+    around it was not.
+    """
+
+    calls: int = 0
+
+    async def run(self, parsed_claim, failure, prior_patches, attempt):
+        self.calls += 1
+        PatchOperation(kind="write_file", path="../venv/pip.conf", new_text="[global]\n")
+        raise AssertionError("unreachable: the path guard must reject this")
+
+
+async def test_a_patch_escaping_the_repository_is_a_failed_attempt_not_a_crash(
+    store, parsed_claim
+) -> None:
+    sandbox = ScriptedSandbox([failure(0)])
+    debugger = PathTraversingDebugger()
+    pipeline = build_pipeline(store, parsed_claim, sandbox, debugger)
+
+    await pipeline.process((await store.create_or_get(str(parsed_claim.source_url)))[0].id)
+
+    job = await store.get_job((await store.create_or_get(str(parsed_claim.source_url)))[0].id)
+    assert job is not None
+    assert job.verdict is not None, "a rejected patch must still produce a verdict"
+    assert job.verdict.status == VerdictStatus.COULD_NOT_VERIFY
+    assert job.verdict.actual_value is None, "nothing was reproduced, so nothing may be reported"
+    assert debugger.calls == 3, "the loop must spend all three attempts, not abort on the first"
+    assert len(job.verdict.attempts) == 3
+
+    trace = await store.get_trace(job.id)
+    rejected = [event for event in trace if event.action == "attempt_rejected"]
+    assert len(rejected) == 3, "each refusal must be recorded in the trace"
+    assert "safety contract" in rejected[0].detail["proposal"]["diagnosis"]
