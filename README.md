@@ -42,7 +42,8 @@ a genuine verdict returns instantly without a single model call.
 
 | Document | Contents |
 |---|---|
-| [docs/COMPLETE.md](docs/COMPLETE.md) | **Everything in one document** — built, tested, results, gaps |
+| [docs/REVIEW.md](docs/REVIEW.md) | **Current status, honest assessment, and what still needs doing** |
+| [docs/COMPLETE.md](docs/COMPLETE.md) | Everything in one document — built, tested, results, gaps |
 | [docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md) | Clone and run it yourself, no API key |
 | [docs/architecture.md](docs/architecture.md) | Both profiles, trust boundaries, data model |
 | `verity-architecture.html` | The presentation diagram — open in a browser |
