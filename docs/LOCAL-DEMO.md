@@ -101,49 +101,159 @@ agent traces, and claim-memory entries ship in this repository at
 
 ### The pre-verified URLs
 
-| Claim URL | Extracted claim | Verdict |
-|---|---|---|
-| `https://arxiv.org/abs/1512.03385` | top-5 error rate = **4.49%** on ImageNet 2012 validation | `could_not_verify` |
-| `https://arxiv.org/abs/1706.03762` | BLEU score = **28.4** on WMT 2014 English-to-German | `could_not_verify` |
+| # | Claim URL | Extracted claim | Verdict |
+|---|---|---|---|
+| 1 | `https://arxiv.org/abs/1512.03385` | top-5 error rate = **4.49%** on ImageNet 2012 validation | `could_not_verify` |
+| 2 | `https://arxiv.org/abs/1706.03762` | BLEU score = **28.4** on WMT 2014 English-to-German | `could_not_verify` |
 
-**Submitting either of these hits the local cache and makes no Gemini API call at all.** They
-return in milliseconds. Anything else will attempt a real verification and *will* need a key.
+**Submitting either of these hits the local cache and makes no Gemini API call at all.**
+Anything else attempts a real verification and needs a key.
 
-### Run it
+### Step 1 — point Verity at the shipped cache and start it
 
-```bash
-uvicorn app.fast_api_app:app --reload --port 8080
+**Windows PowerShell:**
+
+```powershell
+$env:VERITY_SQLITE_PATH = "docs/assets/demo-cache/verity-demo.db"
+python -m uvicorn app.fast_api_app:app --port 8080
 ```
 
-Open `http://127.0.0.1:8080`, paste one of the two URLs above, and submit. The verdict comes
-back immediately, marked as cached.
+**macOS / Linux:**
 
-Prefer the terminal? This reads the shipped cache directly:
+```bash
+VERITY_SQLITE_PATH=docs/assets/demo-cache/verity-demo.db python -m uvicorn app.fast_api_app:app --port 8080
+```
+
+Wait for this line. **Startup takes 10–20 seconds** because Verity checks the Docker daemon
+before accepting any job:
+
+```
+INFO  verity.agents.environment Docker daemon 29.7.2 is available
+INFO  Application startup complete.
+INFO  Uvicorn running on http://127.0.0.1:8080
+```
+
+> Skipping `VERITY_SQLITE_PATH` starts Verity on an empty database. Everything still works,
+> but nothing is cached, so every submission needs an API key.
+
+### Step 2 — open the page
+
+**<http://127.0.0.1:8080>**
+
+You will see a dark page headed **"Verity runs the evidence."** with two fields:
+
+| Field | What to do |
+|---|---|
+| **PUBLIC CLAIM URL** | Paste the claim you want checked |
+| **VERITY API KEY** | **Leave empty.** Only the deployed service requires it |
+
+### Step 3 — submit a cached claim
+
+Paste this into **PUBLIC CLAIM URL** and click **Start verification**:
+
+```
+https://arxiv.org/abs/1512.03385
+```
+
+### Step 4 — read what comes back
+
+The result appears **immediately** — no spinner, because it came from cache:
+
+```
+completed
+could not verify
+Verity could not complete the claimed evaluation after 3 bounded debug attempts.
+No reproduced value is asserted.
+
+CLAIMED       4.49%
+REPRODUCED    Not captured
+CONFIDENCE    high
+ARTIFACT      Not filed
+```
+
+**Look at `REPRODUCED: Not captured`.** That is the entire point of the project. Verity
+extracted a real claim from a real PDF, tried three times to reproduce it, failed, and put
+*nothing* in that box. A system optimising to look good would have written `4.49%` there.
+
+Below that, the **Agent trace** — every step, persisted:
+
+```
+ORCHESTRATOR  job queued
+PARSER        source fetch started
+PARSER        claim extracted
+ENVIRONMENT   initial run started
+ENVIRONMENT   initial run finished
+DEBUG         attempt started       <-- attempt 1
+DEBUG         attempt finished
+DEBUG         attempt started       <-- attempt 2
+DEBUG         attempt finished
+DEBUG         attempt started       <-- attempt 3
+DEBUG         attempt finished          three, and no more. hard-capped.
+REPORTER      verdict started
+REPORTER      verdict completed
+```
+
+Try the second URL (`https://arxiv.org/abs/1706.03762`) — a different paper, a different
+metric, the same honest refusal.
+
+### Step 5 — see a claim that *does* verify
+
+The cache ships the failures because they are the interesting case, but the positive path
+works too. From a real run against `https://github.com/psf/requests`:
+
+```
+claim      : HTTP status code = 200 on https://httpbin.org/basic-auth/user/pass
+verdict    : verified (medium)
+reproduced : 200.0
+attempts   : 1
+summary    : The reproduced HTTP status code (200) is within the declared 2%
+             comparison tolerance of the claim (200).
+```
+
+Verity says **verified** when something reproduces and **could_not_verify** when it does not.
+Reproducing that one yourself needs an API key (§7) — it clones and installs the repository.
+
+### Prefer the terminal?
 
 ```bash
 python scripts/file_stored_verdict.py --database docs/assets/demo-cache/verity-demo.db --list
 ```
 
-```
-2 completed job(s) with a verdict:
+Or hit the API directly:
 
-  068d7560cc124fc0907bfa59770fdaa5
-    https://arxiv.org/abs/1512.03385
-    could_not_verify - top-5 error rate = 4.49% on ImageNet 2012 validation
-    reproduced: None   attempts: 3
+```bash
+curl -s http://127.0.0.1:8080/healthz
 ```
 
-### What to look at, and why it matters
+```bash
+curl -s -X POST http://127.0.0.1:8080/api/jobs -H "Content-Type: application/json" -d "{\"url\":\"https://arxiv.org/abs/1512.03385\"}"
+```
 
-`reproduced: None` with `attempts: 3` is the whole point. Verity tried three bounded repair
-attempts, failed, and **reported no number** rather than inventing one. Open
-[verity-reports#1](https://github.com/ZiyadAzzaz/verity-reports/issues/1) to see what that
-looks like when filed — including the Debug Agent's own words:
+```
+{"job_id":"068d7560cc124fc0907bfa59770fdaa5","status":"completed","cached":true,
+ "status_url":"/api/jobs/068d7560cc124fc0907bfa59770fdaa5"}
+```
+
+Note `"cached":true`. Then fetch the verdict and full trace:
+
+```bash
+curl -s http://127.0.0.1:8080/api/jobs/068d7560cc124fc0907bfa59770fdaa5
+```
+
+### Step 6 — the filed artifact
+
+A verdict does not stop at the screen. Verity files it as a real GitHub Issue:
+
+**<https://github.com/ZiyadAzzaz/verity-reports/issues/1>**
+
+Same verdict, same `Reproduced: not captured`, plus the Debug Agent's own reasoning:
 
 > *"Fabricating the metric or replacing the evaluation with a constant is strictly prohibited
 > under the security and honesty rules. Therefore, no defensible fix can be proposed."*
 
----
+### Stopping the server
+
+`Ctrl+C` in the terminal running uvicorn.
 
 ## 5. The sandbox — verify the isolation yourself
 
