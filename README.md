@@ -42,7 +42,8 @@ a genuine verdict returns instantly without a single model call.
 
 | Document | Contents |
 |---|---|
-| [docs/REVIEW.md](docs/REVIEW.md) | **Current status, honest assessment, and what still needs doing** |
+| [docs/STATE.md](docs/STATE.md) | **Start here** — full state, what is missing, next steps |
+| [docs/REVIEW.md](docs/REVIEW.md) | Honest assessment and recommendations |
 | [docs/COMPLETE.md](docs/COMPLETE.md) | Everything in one document — built, tested, results, gaps |
 | [docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md) | Clone and run it yourself, no API key |
 | [docs/architecture.md](docs/architecture.md) | Both profiles, trust boundaries, data model |
