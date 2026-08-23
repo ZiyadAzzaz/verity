@@ -22,6 +22,29 @@ class ReporterAgent:
         self._issues = issue_publisher
         self._tolerance = relative_tolerance
 
+    async def publish(self, job_id: str, parsed_claim: ParsedClaim, verdict: Verdict) -> Verdict:
+        """File an already-synthesised verdict.
+
+        The short-circuit outcomes - no_verifiable_claim_found, environment_incompatible -
+        are decided by the pipeline rather than by comparing a reproduced number, but they
+        are still verdicts and still deserve the same durable artifact. This shares the
+        render-and-file path with :meth:`run` so their Issues look identical.
+        """
+        title, body = render_issue(verdict, parsed_claim, job_id)
+        try:
+            issue_url = await self._issues.publish(parsed_claim, title, body)
+        except Exception as exc:
+            return verdict.model_copy(
+                update={
+                    "artifact_error": f"GitHub issue filing failed: {type(exc).__name__}: {exc}"[
+                        :5000
+                    ]
+                }
+            )
+        if issue_url:
+            verdict = verdict.model_copy(update={"issue_url": issue_url})
+        return verdict
+
     async def run(
         self,
         job_id: str,

@@ -251,6 +251,13 @@ Same verdict, same `Reproduced: not captured`, plus the Debug Agent's own reason
 > *"Fabricating the metric or replacing the evaluation with a constant is strictly prohibited
 > under the security and honesty rules. Therefore, no defensible fix can be proposed."*
 
+### Want an offline copy of a result?
+
+Use your browser's own **Print → Save as PDF** on the result page. There is no export
+feature and does not need to be one — the filed GitHub Issue is already the detailed report,
+carrying the full debug trail, claimed versus reproduced, the evidence quote, and the Debug
+Agent's reasoning.
+
 ### Stopping the server
 
 `Ctrl+C` in the terminal running uvicorn.

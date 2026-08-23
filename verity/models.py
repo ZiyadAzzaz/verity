@@ -53,10 +53,31 @@ class JobStatus(StrEnum):
 
 
 class VerdictStatus(StrEnum):
+    """One label, one meaning. Collapsing two outcomes into one label is the failure mode
+    this enum exists to prevent - a `could_not_verify` that quietly also means "we never
+    really tried" is worse than no verdict at all."""
+
     VERIFIED = "verified"
     CONTRADICTED = "contradicted"
     INCONCLUSIVE = "inconclusive"
+    #: Genuinely attempted the evaluation; it did not reproduce.
     COULD_NOT_VERIFY = "could_not_verify"
+    #: The source asserts no headline result worth checking. Nothing was executed.
+    NO_VERIFIABLE_CLAIM_FOUND = "no_verifiable_claim_found"
+    #: The sandbox could not host this repository as written, so the claim was never tested.
+    ENVIRONMENT_INCOMPATIBLE = "environment_incompatible"
+
+
+class ClaimSignificance(StrEnum):
+    """Whether the source is *asserting* this number as a result.
+
+    "Top-1 accuracy 84.3% on ImageNet" is a contribution the author stands behind.
+    "11 features" in a data-analysis README is a description of a table. Reproducing the
+    second proves nothing, so Verity should decline rather than spend a sandbox on it.
+    """
+
+    HEADLINE_CLAIM = "headline_claim"
+    INCIDENTAL_STATISTIC = "incidental_statistic"
 
 
 class Confidence(StrEnum):
@@ -107,6 +128,10 @@ class ParsedClaim(BaseModel):
     source_type: SourceType
     evidence_excerpt: str = Field(min_length=1, max_length=1500)
     execution: ExecutionPlan = Field(default_factory=ExecutionPlan)
+    #: Defaults to headline so every job and fixture written before this field keeps its
+    #: meaning; only an explicit judgement can downgrade a claim.
+    claim_significance: ClaimSignificance = ClaimSignificance.HEADLINE_CLAIM
+    significance_reason: str = Field(default="", max_length=1000)
 
 
 class PatchOperation(BaseModel):
@@ -151,6 +176,48 @@ class EnvironmentResult(BaseModel):
     @property
     def error_text(self) -> str:
         return (self.stderr or self.stdout or f"{self.phase} failed")[-20_000:]
+
+
+#: Signatures of a process that tried to reach the network and was refused. The evaluation
+#: phase runs with ``--network none`` on purpose, so a repository that downloads its dataset
+#: at evaluation time cannot succeed whether its claim is true or false. Attributing that to
+#: the claim would be blaming the source for our constraint.
+_BLOCKED_NETWORK_MARKERS = (
+    "temporary failure in name resolution",
+    "name or service not known",
+    "nodename nor servname provided",
+    "connectionerror",
+    "connectionrefusederror",
+    "connection refused",
+    "newconnectionerror",
+    "failed to establish a new connection",
+    "network is unreachable",
+    "no route to host",
+    "gaierror",
+    "urlerror",
+    "urlopen error",
+    "max retries exceeded with url",
+    "ssl",
+    "certificate verify failed",
+    "proxyerror",
+    "read timed out",
+)
+
+
+def looks_environment_incompatible(result: EnvironmentResult) -> bool:
+    """Did this fail because the sandbox denied network access, rather than on its merits?
+
+    Deliberately narrow. Only the *evaluation* phase qualifies: clone and install run with
+    the network open, so a failure there is a real failure. A succeeding run never qualifies.
+
+    The asymmetry matters. Missing one blocked-network case costs a slightly unfair
+    ``could_not_verify``; a false positive excuses a genuine reproduction failure as our own
+    fault, which is exactly the kind of flattering misreport Verity exists to avoid.
+    """
+    if result.succeeded or result.phase != "evaluate":
+        return False
+    haystack = (result.stderr + "\n" + result.stdout).lower()
+    return any(marker in haystack for marker in _BLOCKED_NETWORK_MARKERS)
 
 
 class AttemptLog(BaseModel):

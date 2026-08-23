@@ -52,13 +52,41 @@ a genuine verdict returns instantly without a single model call.
 
 ## What a result means
 
+Each label means exactly one thing. Collapsing two outcomes into one label is the failure
+mode these are designed to prevent.
+
 - `verified`: a captured metric is within the explicit 2% comparison tolerance.
 - `contradicted`: a captured metric is outside that tolerance.
 - `inconclusive`: evaluation exited successfully but no attributable metric was captured.
-- `could_not_verify`: execution still failed after the bounded debug loop.
+- `could_not_verify`: Verity genuinely attempted the evaluation and it did not reproduce.
+- `no_verifiable_claim_found`: the source asserts no headline result worth checking — only
+  incidental statistics like a row or feature count. **Nothing was executed.**
+- `environment_incompatible`: the repository needs network access during evaluation, which
+  the sandbox denies so a benchmark cannot fetch data mid-measurement. **The claim was never
+  tested**; this says nothing about whether it is true.
 
 Verity never turns missing output into a number. Every error, proposed patch, and retry outcome
 is persisted under the job trace.
+
+## Known limitations
+
+Stated plainly, because a verification tool that oversells itself is self-defeating.
+
+- **Claim-significance detection is a heuristic.** Verity asks the model whether a number is
+  a result the source is asserting or an incidental statistic. It will not be right on every
+  source. A misjudged headline claim gets skipped; a misjudged incidental one wastes a
+  sandbox run. Both are visible in the verdict rather than hidden.
+- **Network-isolated evaluation cannot test data-fetching pipelines.** Any repository that
+  downloads its dataset at evaluation time is untestable as written. That now surfaces
+  explicitly as `environment_incompatible` rather than being reported as a failed
+  reproduction, but the underlying limit is real.
+- **Most public claims do not reproduce on a laptop.** Model weights, private datasets, and
+  multi-GPU training put a lot of legitimate research out of reach. `could_not_verify` is the
+  common outcome and is not a defect.
+- **The parser may extract a different claim on different runs** when a source contains
+  several. Each extraction is grounded in a verbatim quote, but they are not identical
+  between runs.
+- **The cloud profile is implemented but unverified** against live Google Cloud.
 
 ## Local setup (Python 3.11, no Google Cloud)
 

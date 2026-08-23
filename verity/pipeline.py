@@ -9,7 +9,18 @@ from pydantic import ValidationError
 
 from verity.agents import DebugAgent, EnvironmentAgent, ParserAgent, ReporterAgent
 from verity.interfaces import JobStore
-from verity.models import AttemptLog, DebugProposal, JobStatus, PatchOperation
+from verity.models import (
+    AttemptLog,
+    ClaimSignificance,
+    Confidence,
+    DebugProposal,
+    JobStatus,
+    ParsedClaim,
+    PatchOperation,
+    Verdict,
+    VerdictStatus,
+    looks_environment_incompatible,
+)
 from verity.telemetry import agent_span
 
 logger = logging.getLogger(__name__)
@@ -57,6 +68,25 @@ class VerificationPipeline:
                 "claim_extracted",
                 parsed.model_dump(mode="json"),
             )
+
+            # Nothing the source asserts as a result is worth burning a sandbox on. Stop here
+            # rather than executing and then reporting could_not_verify, which would claim we
+            # tried to reproduce something nobody ever put forward as a finding.
+            if parsed.claim_significance is ClaimSignificance.INCIDENTAL_STATISTIC:
+                await self._finish_without_execution(
+                    job_id,
+                    parsed,
+                    VerdictStatus.NO_VERIFIABLE_CLAIM_FOUND,
+                    (
+                        "No headline performance claim was found at this source. The strongest "
+                        f"quantitative statement available was '{parsed.claim.metric} = "
+                        f"{parsed.claim.value:g}{parsed.claim.unit}', which the source presents "
+                        "as a descriptive statistic rather than a result it is asserting. "
+                        "Nothing was executed, and no reproduction was attempted."
+                        + (f" {parsed.significance_reason}" if parsed.significance_reason else "")
+                    ),
+                )
+                return
 
             await self._store.update_job(job_id, status=JobStatus.RUNNING)
             await self._trace(job_id, "environment", "initial_run_started")
@@ -144,6 +174,28 @@ class VerificationPipeline:
                     if result.succeeded:
                         break
 
+            # The evaluation phase has no network by design. A repository that fetches its
+            # data at evaluation time therefore cannot succeed whether its claim is true or
+            # false, so calling that could_not_verify would blame the claim for our sandbox.
+            # Checked only after the debug loop: if a patch made it run offline, it ran.
+            if looks_environment_incompatible(result):
+                await self._finish_without_execution(
+                    job_id,
+                    parsed,
+                    VerdictStatus.ENVIRONMENT_INCOMPATIBLE,
+                    (
+                        "This claim was never tested. The evaluation reached the network, "
+                        "which Verity's sandbox denies during evaluation so that a benchmark "
+                        "cannot fetch data mid-measurement. The repository needs network "
+                        "access at evaluation time and is untestable as written under that "
+                        "constraint. This is a limitation of the sandbox, not evidence about "
+                        "the claim."
+                    ),
+                    attempts=attempts,
+                    evidence=[result.error_text[:1500]],
+                )
+                return
+
             await self._store.update_job(job_id, status=JobStatus.REPORTING)
             await self._trace(
                 job_id,
@@ -181,6 +233,43 @@ class VerificationPipeline:
                 status=JobStatus.FAILED,
                 error=f"{type(exc).__name__}: {exc}"[:5000],
             )
+
+    async def _finish_without_execution(
+        self,
+        job_id: str,
+        parsed: ParsedClaim,
+        status: VerdictStatus,
+        summary: str,
+        *,
+        attempts: list[AttemptLog] | None = None,
+        evidence: list[str] | None = None,
+    ) -> None:
+        """Complete a job with an outcome that is neither success nor reproduction failure.
+
+        Both callers share one property worth stating in code: ``actual_value`` is None and
+        stays None. Nothing was measured, so nothing may be reported - the same rule that
+        governs ``could_not_verify``, applied to outcomes that are not it.
+        """
+        verdict = Verdict(
+            status=status,
+            confidence=Confidence.HIGH,
+            claim=parsed.claim,
+            actual_value=None,
+            summary=summary,
+            attempts=attempts or [],
+            evidence=evidence or [],
+        )
+        await self._store.update_job(job_id, status=JobStatus.REPORTING)
+        await self._trace(job_id, "reporter", "verdict_started", {"short_circuit": status.value})
+        with agent_span("reporter", job_id):
+            verdict = await self._reporter.publish(job_id, parsed, verdict)
+        await self._trace(
+            job_id,
+            "reporter",
+            "verdict_completed",
+            verdict.model_dump(mode="json"),
+        )
+        await self._store.complete_job(job_id, verdict)
 
     async def _trace(
         self,

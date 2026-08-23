@@ -95,7 +95,12 @@ async def run(database: str, job_id: str | None, list_only: bool) -> int:
         title, body = render_issue(verdict, job.parsed_claim, job.id)
         issue_url = await publisher.publish(job.parsed_claim, title, body)
         if issue_url:
+            # Persist it. Filing the Issue and forgetting where it went leaves the stored
+            # verdict claiming "not filed", so the UI cannot link to the artifact it just
+            # produced - which is exactly what happened the first time this ran.
+            await store.complete_job(job.id, verdict.model_copy(update={"issue_url": issue_url}))
             print(f"\nIssue filed: {issue_url}")
+            print("recorded on the stored verdict, so the UI can link to it")
             return 0
         print("\nno issue URL returned")
         return 1

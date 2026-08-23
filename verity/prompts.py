@@ -18,6 +18,23 @@ Rules:
 - Provide non-shell argv arrays for install/evaluation commands only when supported by the
   source. Never include pipes, redirects, command substitution, or secrets.
 - A result_pattern must contain one numeric capture group for the reproduced value.
+
+Judging significance (claim_significance):
+- headline_claim: a result the source is *asserting as its own contribution* - accuracy,
+  F1, BLEU, mAP, error rate, latency, throughput, speedup, cost per token, a benchmark
+  table row the authors are putting forward as their finding.
+- incidental_statistic: a number that merely describes the material rather than claiming
+  anything. Dataset row or feature counts, number of files or classes, a version number,
+  a download count, a percentage in a background section quoted from someone else's work,
+  a hyperparameter. Reproducing one of these would prove nothing about the source.
+- Ask: "is the source standing behind this number as a result someone might dispute?" A
+  data-analysis notebook stating "11 features" is describing its input, not claiming a
+  result. Mark that incidental_statistic.
+- Set significance_reason to one sentence justifying the call, grounded in the source the
+  same way evidence_excerpt is. Do not assert significance you cannot point at.
+- When a source contains only incidental statistics, still extract the strongest number you
+  find and mark it incidental_statistic. Do not promote it, and do not invent a headline
+  claim that is not there. Verity will decline to run it, which is the correct outcome.
 """.strip()
 
 ENVIRONMENT_INSTRUCTION = """

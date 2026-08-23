@@ -39,7 +39,17 @@
     a { color:#9ed7b1; }
     footer { margin-top:34px; color:#ffffff65; font:11px ui-monospace,monospace; }
     @media (max-width:600px) { main { padding-top:40px; } .event { grid-template-columns:1fr; gap:4px; } }
-  </style>
+    .examples{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .examples-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;opacity:.5;margin-right:4px;}
+  .chip{background:transparent;border:1px solid rgba(243,239,228,0.28);border-radius:20px;
+    color:inherit;font:inherit;font-size:12px;padding:5px 12px;cursor:pointer;opacity:.8;}
+  .chip:hover{border-color:rgba(243,239,228,0.6);opacity:1;}
+  .analysis{display:inline-block;margin-top:14px;font-family:'IBM Plex Mono',monospace;
+    font-size:12px;letter-spacing:.04em;padding:8px 14px;border-radius:6px;
+    border:1px solid rgba(62,124,89,0.7);color:inherit;text-decoration:none;}
+  .analysis:hover{background:rgba(62,124,89,0.18);}
+</style>
 </head>
 <body>
 <main>
@@ -51,6 +61,12 @@
       <div class="field"><label for="url">Public claim URL</label><input id="url" type="url" required placeholder="https://arxiv.org/abs/…" autocomplete="url"></div>
       <div class="field"><label for="key">Verity API key</label><input id="key" type="password" placeholder="Required by deployed service" autocomplete="current-password"></div>
       <button id="submit" type="submit">Start verification</button>
+<div class="examples"><span class="examples-label">Try one</span>
+<button type="button" class="chip" data-url="https://arxiv.org/abs/1512.03385">ResNet paper &middot; honest failure</button>
+<button type="button" class="chip" data-url="https://arxiv.org/abs/1706.03762">Attention paper &middot; honest failure</button>
+<button type="button" class="chip" data-url="https://github.com/psf/requests">requests &middot; verifies</button>
+<button type="button" class="chip" data-url="https://github.com/ZiyadAzzaz/Stroke-Data-Analysis">data-analysis repo &middot; no verifiable claim</button>
+</div>
     </form>
     <div id="error" class="error" role="alert"></div>
     <div id="status" class="status" aria-live="polite">
@@ -86,11 +102,13 @@ function render(view){
     shown.push({agent:e.agent,label:e.action.replaceAll('_',' ')});
   }
   trace.innerHTML=shown.map(e=>`<div class="event"><span class="agent">${esc(e.agent)}</span><span>${esc(e.label)}</span></div>`).join('');
-  if(j.verdict){const v=j.verdict,c=v.claim; result.innerHTML=`<div class="summary"><strong>${esc(v.status.replaceAll('_',' '))}</strong><br>${esc(v.summary)}</div><div class="grid"><div class="cell"><small>Claimed</small><strong>${esc(c.value)}${esc(c.unit)}</strong></div><div class="cell"><small>Reproduced</small><strong>${v.actual_value===null?'Not captured':esc(v.actual_value)+esc(c.unit)}</strong></div><div class="cell"><small>Confidence</small><strong>${esc(v.confidence)}</strong></div><div class="cell"><small>Artifact</small><strong>${v.issue_url?`<a href="${esc(v.issue_url)}" target="_blank" rel="noopener">GitHub Issue</a>`:'Not filed'}</strong></div></div>`;}
+  if(j.verdict){const v=j.verdict,c=v.claim; const analysis=v.issue_url?`<a class="analysis" href="${esc(v.issue_url)}" target="_blank" rel="noopener">View detailed analysis (GitHub Issue) &rarr;</a>`:'';
+    result.innerHTML=`<div class="summary"><strong>${esc(v.status.replaceAll('_',' '))}</strong><br>${esc(v.summary)}${analysis}</div><div class="grid"><div class="cell"><small>Claimed</small><strong>${esc(c.value)}${esc(c.unit)}</strong></div><div class="cell"><small>Reproduced</small><strong>${v.actual_value===null?'Not captured':esc(v.actual_value)+esc(c.unit)}</strong></div><div class="cell"><small>Confidence</small><strong>${esc(v.confidence)}</strong></div><div class="cell"><small>Artifact</small><strong>${v.issue_url?`<a href="${esc(v.issue_url)}" target="_blank" rel="noopener">GitHub Issue</a>`:'Not filed'}</strong></div></div>`;}
   if(j.error) error.textContent=j.error;
   if(['completed','failed'].includes(j.status)){clearInterval(timer); button.disabled=false;}
 }
 async function poll(id){try{const r=await fetch(`/api/jobs/${id}`,{headers:headers()});if(!r.ok)throw new Error((await r.json()).detail||r.statusText);render(await r.json());}catch(e){error.textContent=e.message;}}
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{document.querySelector('#url').value=c.dataset.url;document.querySelector('#url').focus();}));
 form.addEventListener('submit',async e=>{e.preventDefault();clearInterval(timer);error.textContent='';result.innerHTML='';trace.innerHTML='';button.disabled=true;statusBox.classList.add('visible');statusText.textContent='Submitting';try{const r=await fetch('/api/jobs',{method:'POST',headers:headers(),body:JSON.stringify({url:document.querySelector('#url').value})});const data=await r.json();if(!r.ok)throw new Error(data.detail||r.statusText);await poll(data.job_id);timer=setInterval(()=>poll(data.job_id),2000);}catch(e){error.textContent=e.message;button.disabled=false;}});
 </script>
 </body>
