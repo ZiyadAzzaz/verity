@@ -117,3 +117,59 @@ async def test_parser_typed_contract_across_three_real_source_shapes(
     assert generator.document.media_type == (
         "application/pdf" if source_type == SourceType.ARXIV else media_type
     )
+
+
+# --- readme filename fallback --------------------------------------------------------------
+
+
+def test_github_readme_candidates_cover_more_than_markdown() -> None:
+    """tqdm ships README.rst. Assuming Markdown 404'd the job before the Parser ran."""
+    from verity.models import SourceType
+    from verity.source import README_NAMES, SourceFetcher
+
+    fetcher = SourceFetcher()
+    candidates = fetcher._github_readme_candidates(
+        "https://github.com/tqdm/tqdm", SourceType.GITHUB
+    )
+    assert len(candidates) == len(README_NAMES)
+    assert candidates[0].endswith("/README.md"), "Markdown stays the first guess"
+    assert any(c.endswith("/README.rst") for c in candidates)
+    assert all(
+        c.startswith("https://raw.githubusercontent.com/tqdm/tqdm/HEAD/") for c in candidates
+    )
+
+
+def test_a_pinned_revision_is_preserved_across_candidates() -> None:
+    from verity.models import SourceType
+    from verity.source import SourceFetcher
+
+    candidates = SourceFetcher()._github_readme_candidates(
+        "https://github.com/ultralytics/yolov5/tree/v7.0", SourceType.GITHUB
+    )
+    assert all("/yolov5/v7.0/" in c for c in candidates), "the tag must survive the fallback"
+
+
+def test_a_direct_blob_url_is_not_expanded() -> None:
+    """Only a bare repository root guesses. An explicit file is taken literally."""
+    from verity.models import SourceType
+    from verity.source import SourceFetcher
+
+    candidates = SourceFetcher()._github_readme_candidates(
+        "https://github.com/psf/requests/blob/main/docs/index.rst", SourceType.GITHUB
+    )
+    assert len(candidates) == 1
+    assert candidates[0].endswith("/docs/index.rst")
+
+
+def test_non_github_sources_are_untouched() -> None:
+    from verity.models import SourceType
+    from verity.source import SourceFetcher
+
+    fetcher = SourceFetcher()
+    assert (
+        len(fetcher._github_readme_candidates("https://arxiv.org/abs/1512.03385", SourceType.ARXIV))
+        == 1
+    )
+    assert (
+        len(fetcher._github_readme_candidates("https://example.com/claim", SourceType.VENDOR)) == 1
+    )

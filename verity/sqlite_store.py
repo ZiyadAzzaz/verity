@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sqlite3
 import uuid
 from collections.abc import Callable
@@ -72,11 +73,46 @@ CREATE TABLE IF NOT EXISTS sandbox_runs (
 """
 
 
+#: The curated demo database that ships in the repository. It backs docs/LOCAL-DEMO.md, so
+#: its contents are a documented promise rather than scratch state.
+DEMO_CACHE_NAME = "verity-demo.db"
+DEMO_CACHE_MARKER = ("docs", "assets", "demo-cache", DEMO_CACHE_NAME)
+
+#: Set to open the shipped demo cache for writing. Only scripts/rebuild_demo_cache.py should.
+ALLOW_DEMO_WRITES = "VERITY_ALLOW_DEMO_CACHE_WRITES"
+
+
+def _is_shipped_demo_cache(path: Path) -> bool:
+    parts = tuple(path.resolve().parts)
+    return len(parts) >= 4 and parts[-4:] == DEMO_CACHE_MARKER
+
+
+def guard_demo_cache(path: Path) -> None:
+    """Refuse to open the shipped demo cache for writing without an explicit opt-in.
+
+    The demo cache absorbed live experimentation twice: a developer points the server at it
+    to demo something, submits a few URLs, and the curated set silently grows. The second
+    time it shipped a verdict that contradicted the guide describing it. Remembering not to
+    do that is not a mechanism; this is.
+    """
+    if not _is_shipped_demo_cache(path):
+        return
+    if os.environ.get(ALLOW_DEMO_WRITES) == "1":
+        return
+    raise RuntimeError(
+        f"Refusing to open the shipped demo cache for writing: {path}. "
+        "It is a curated fixture backing docs/LOCAL-DEMO.md, not scratch space. "
+        "Point VERITY_SQLITE_PATH somewhere else for development, or run "
+        "scripts/rebuild_demo_cache.py to change what ships."
+    )
+
+
 class SQLiteJobStore(JobStore):
     """A :class:`JobStore` over one local SQLite file (default ``verity.db``)."""
 
     def __init__(self, database_path: str | Path = "verity.db") -> None:
         self._path = Path(database_path)
+        guard_demo_cache(self._path)
         if self._path.parent != Path():
             self._path.parent.mkdir(parents=True, exist_ok=True)
         self._connection = sqlite3.connect(

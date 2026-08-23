@@ -116,26 +116,11 @@ imply a deployment that did not happen.
 
 ## 5. Three things I'd change now, in priority order
 
-### 5.1 Move the eleven prompt files out of the repository root
+### 5.1 ~~Move the eleven prompt files out of the repository root~~ — ✅ done
 
-```
-verity-agent-prompt.md              verity-history-visibility-prompt.md
-verity-billing-clarification-...    verity-issue-button-addendum-...
-verity-button-diagnosis-prompt.md   verity-local-pivot-prompt.md
-verity-checkin-prompt.md            verity-review-integrate-prompt.md
-verity-claim-quality-prompt.md      verity-cleanup-boundary-prompt.md
-verity-final-push-prompt.md
-```
-
-These are our internal working notes, sitting in the first screen a judge sees. Filenames like
-`verity-button-diagnosis-prompt.md` read as debugging chatter next to `README.md`.
-
-**I'd move them to `docs/history/`.** Not delete — the decision trail is genuinely part of the
-story, and a judge who digs will find it creditable. But the root should show the project, not
-the process.
-
-**Why I didn't just do it:** they're your files and moving eleven of them changes what someone
-following an old link finds. Say the word.
+All twelve now live in `docs/history/`, moved with `git mv` so the history follows them. The
+repository root holds one markdown file: `README.md`. Nothing linked to the old paths; the
+remaining mentions are prose, not links.
 
 ### 5.2 Collapse ten status documents into three
 

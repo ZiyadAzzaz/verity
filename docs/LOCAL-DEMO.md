@@ -107,10 +107,11 @@ agent traces, and claim-memory entries ship in this repository at
 | 2 | `https://arxiv.org/abs/1706.03762` | BLEU score = **28.4** on WMT 2014 English-to-German | `could_not_verify` |
 | 3 | `https://github.com/psf/requests` | HTTP status code = **200** on an httpbin endpoint | **`verified`** — reproduced 200.0 |
 | 4 | `https://github.com/ZiyadAzzaz/Stroke-Data-Analysis` | number of features = 11 | **`no_verifiable_claim_found`** — nothing executed |
+| 5 | `https://github.com/ijl/orjson` | median latency = **0.1 ms** on twitter.json | **`environment_incompatible`** — never tested |
 
-Four claims covering **three different outcomes**, so you can see the full range without an
-API key: a claim that reproduces, two that honestly do not, and one the source never asserted
-as a result in the first place.
+Five claims covering **four different outcomes**, so the full range is visible without an API
+key: a claim that reproduces, two that honestly do not, one the source never asserted as a
+result, and one the sandbox genuinely could not host.
 
 **Submitting either of these hits the local cache and makes no Gemini API call at all.**
 Anything else attempts a real verification and needs a key.
@@ -222,6 +223,12 @@ repository's only number is a feature count — a description of its input, not 
 asserted. Verity returns `no_verifiable_claim_found`, **runs no container at all**, and the
 trace is five events instead of thirteen. Reporting that as a failed reproduction would have
 claimed an attempt that never happened.
+
+Finally `https://github.com/ijl/orjson`, for the fourth case. Its benchmark downloads its
+input at evaluation time, and Verity's sandbox denies network access during evaluation so a
+benchmark cannot fetch data mid-measurement. That claim is therefore untestable here whether
+it is true or false, and Verity says so: **`environment_incompatible`**, explicitly *not*
+`could_not_verify`. Blaming the claim for our own constraint would be the easy lie.
 
 ### Prefer the terminal?
 

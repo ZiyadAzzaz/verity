@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -24,6 +25,11 @@ class SourceDocument:
     media_type: str
     content: bytes
     text: str
+
+
+#: Readme filenames to try at a GitHub repository root, in order. GitHub imposes no
+#: convention, so assuming Markdown silently excludes a large slice of real repositories.
+README_NAMES = ("README.md", "README.rst", "README.txt", "readme.md", "README", "README.markdown")
 
 
 class SourceFetcher:
@@ -66,15 +72,51 @@ class SourceFetcher:
                 revision = "HEAD"
                 if len(parts) >= 4 and parts[2] == "tree":
                     revision = parts[3]
-                return (
-                    f"https://raw.githubusercontent.com/{parts[0]}/{parts[1]}/{revision}/README.md"
-                )
+                base = f"https://raw.githubusercontent.com/{parts[0]}/{parts[1]}/{revision}"
+                return f"{base}/{README_NAMES[0]}"
         return url
+
+    def _github_readme_candidates(self, url: str, source_type: SourceType) -> list[str]:
+        """Every readme filename worth trying for a GitHub repository root.
+
+        GitHub does not mandate Markdown. tqdm ships README.rst, plenty of projects ship
+        README.txt, and casing varies. Hardcoding README.md meant a 404 killed the job before
+        the Parser ever saw the source - which is not "this claim could not be verified", it
+        is Verity failing to read a page that was sitting there.
+        """
+        first = self._fetch_url(url, source_type)
+        if not first.startswith("https://raw.githubusercontent.com/"):
+            return [first]
+        if not first.endswith("/" + README_NAMES[0]):
+            return [first]
+        base = first[: -len(README_NAMES[0])]
+        return [base + name for name in README_NAMES]
+
+    async def _first_that_exists(self, client: Any, candidates: list[str]) -> str:
+        """Return the first candidate the server will serve.
+
+        Single candidate is the common case and costs nothing extra. Where several are in
+        play, a HEAD request is cheap and avoids downloading a 404 body. If every one is
+        missing, fall back to the first so the caller raises the familiar error against the
+        filename a reader would expect.
+        """
+        if len(candidates) == 1:
+            return candidates[0]
+        for candidate in candidates:
+            if self._validate_dns:
+                await asyncio.to_thread(validate_public_host, candidate)
+            try:
+                probe = await client.head(candidate, follow_redirects=True)
+            except httpx.HTTPError:
+                continue
+            if probe.status_code < 400:
+                return candidate
+        return candidates[0]
 
     async def fetch(self, raw_url: str) -> SourceDocument:
         requested = canonicalize_url(raw_url)
         source_type = self.classify(requested)
-        fetch_url = self._fetch_url(requested, source_type)
+        candidates = self._github_readme_candidates(requested, source_type)
         headers = {"User-Agent": "Verity/0.1 (+https://github.com/verity-agent)"}
         async with httpx.AsyncClient(
             timeout=self._timeout,
@@ -82,6 +124,7 @@ class SourceFetcher:
             transport=self._transport,
             headers=headers,
         ) as client:
+            fetch_url = await self._first_that_exists(client, candidates)
             current_url = fetch_url
             for _redirect_count in range(6):
                 if self._validate_dns:

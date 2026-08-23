@@ -1,0 +1,35 @@
+{
+  "comment": "The curated contents of verity-demo.db. tests/test_demo_cache.py fails if the shipped database drifts from this. Regenerate both with scripts/rebuild_demo_cache.py.",
+  "jobs": [
+    {
+      "actual_value": null,
+      "metric": "top-5 error rate",
+      "url": "https://arxiv.org/abs/1512.03385",
+      "verdict": "could_not_verify"
+    },
+    {
+      "actual_value": null,
+      "metric": "BLEU score",
+      "url": "https://arxiv.org/abs/1706.03762",
+      "verdict": "could_not_verify"
+    },
+    {
+      "actual_value": null,
+      "metric": "number of features",
+      "url": "https://github.com/ZiyadAzzaz/Stroke-Data-Analysis",
+      "verdict": "no_verifiable_claim_found"
+    },
+    {
+      "actual_value": null,
+      "metric": "Median latency",
+      "url": "https://github.com/ijl/orjson",
+      "verdict": "environment_incompatible"
+    },
+    {
+      "actual_value": 200.0,
+      "metric": "HTTP status code",
+      "url": "https://github.com/psf/requests",
+      "verdict": "verified"
+    }
+  ]
+}
