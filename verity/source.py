@@ -106,7 +106,11 @@ class SourceFetcher:
             if self._validate_dns:
                 await asyncio.to_thread(validate_public_host, candidate)
             try:
-                probe = await client.head(candidate, follow_redirects=True)
+                # Never let httpx follow this probe automatically: each redirect target must
+                # pass the same public-host validation as the real GET. A convenience HEAD
+                # that follows redirects on its own reintroduces SSRF before the guarded
+                # fetch loop even starts.
+                probe = await client.head(candidate, follow_redirects=False)
             except httpx.HTTPError:
                 continue
             if probe.status_code < 400:

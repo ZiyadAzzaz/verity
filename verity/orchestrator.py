@@ -38,11 +38,17 @@ class Orchestrator:
         if self._validate_dns:
             await asyncio.to_thread(validate_public_host, canonical)
         job, created = await self._store.create_or_get(canonical)
-        if created:
+        # Queue publication is not transactional with job reservation yet. If a process
+        # dies between those two operations, the durable record remains QUEUED but the
+        # in-process message is gone. Re-publishing an existing queued record on a repeat
+        # submission closes that user-visible recovery path. Concurrent duplicates are
+        # safe because JobStore.claim_job atomically admits only one pipeline worker.
+        should_publish = created or job.status == JobStatus.QUEUED
+        if should_publish:
             await self._store.append_trace(
                 job.id,
                 agent="orchestrator",
-                action="job_queued",
+                action="job_queued" if created else "queued_job_republished",
                 detail={"canonical_url": canonical},
             )
             try:
@@ -54,11 +60,9 @@ class Orchestrator:
                     action="publication_failed",
                     detail={"error_type": type(exc).__name__, "error": str(exc)[:2000]},
                 )
-                await self._store.update_job(
-                    job.id,
-                    status=JobStatus.FAILED,
-                    error=f"Could not publish verification job: {exc}"[:5000],
-                )
+                # Keep the durable intent queued. Marking it FAILED would turn a transient
+                # broker outage into a new benchmark on the next submission and would
+                # remove the only state from which publication can be retried.
                 raise
         return SubmitResponse(
             job_id=job.id,

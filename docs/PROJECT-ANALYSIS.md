@@ -1,5 +1,8 @@
 # Verity — Deep Status Analysis
 
+> **Historical snapshot (2026-08-22).** Use [STATE.md](STATE.md) and
+> [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md) for the current analysis.
+
 **Date:** 2026-08-22
 **Repo:** https://github.com/ZiyadAzzaz/verity (private) · `main` @ `5732ed9` · 13 commits
 **Reports repo:** https://github.com/ZiyadAzzaz/verity-reports (private)

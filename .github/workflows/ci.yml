@@ -6,6 +6,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: conda-incubator/setup-miniconda@v3
@@ -20,6 +21,16 @@ jobs:
       - shell: bash -el {0}
         run: python -m ruff format --check .
       - shell: bash -el {0}
-        run: python -m mypy verity app
+        run: python -m mypy verity app scripts
       - shell: bash -el {0}
         run: python -m pytest -q -m "not docker"
+      - shell: bash -el {0}
+        run: docker build -f Dockerfile.runner -t verity-sandbox-runner:1 .
+      - shell: bash -el {0}
+        run: docker build -f Dockerfile.sandbox -t verity-sandbox-cloud-ci:latest .
+      - shell: bash -el {0}
+        run: docker run --rm --entrypoint python verity-sandbox-cloud-ci:latest -c "import verity.sandbox_runner; print('sandbox import ok')"
+      - shell: bash -el {0}
+        run: python -m pytest -q -m docker
+      - shell: bash -el {0}
+        run: python scripts/validate_docker_isolation.py

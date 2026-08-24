@@ -23,15 +23,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from verity.config import get_settings
 from verity.github import GitHubIssuePublisher, render_issue
-from verity.models import JobStatus
+from verity.models import JobStatus, Verdict
 from verity.sqlite_store import SQLiteJobStore
 
 
 async def run(database: str, job_id: str | None, list_only: bool) -> int:
     settings = get_settings()
-    store = SQLiteJobStore(database)
+    store = SQLiteJobStore(database, read_only=list_only or job_id is None)
     try:
-        connection = sqlite3.connect(database)
+        read_uri = Path(database).resolve().as_uri() + "?mode=ro&immutable=1"
+        connection = sqlite3.connect(read_uri, uri=True)
         ids = [row[0] for row in connection.execute("select id from jobs").fetchall()]
         connection.close()
 
@@ -98,7 +99,9 @@ async def run(database: str, job_id: str | None, list_only: bool) -> int:
             # Persist it. Filing the Issue and forgetting where it went leaves the stored
             # verdict claiming "not filed", so the UI cannot link to the artifact it just
             # produced - which is exactly what happened the first time this ran.
-            await store.complete_job(job.id, verdict.model_copy(update={"issue_url": issue_url}))
+            payload = verdict.model_dump(mode="python")
+            payload["issue_url"] = issue_url
+            await store.complete_job(job.id, Verdict.model_validate(payload))
             print(f"\nIssue filed: {issue_url}")
             print("recorded on the stored verdict, so the UI can link to it")
             return 0

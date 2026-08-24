@@ -7,18 +7,21 @@ import os
 import time
 
 from verity.agents.environment import LocalSandboxBackend
-from verity.config import get_settings
-from verity.container import build_store
 from verity.models import EnvironmentResult
+from verity.store import FirestoreJobStore
 
 
 async def run_once() -> int:
     run_id = os.environ.get("VERITY_SANDBOX_RUN_ID")
     if not run_id:
         raise RuntimeError("VERITY_SANDBOX_RUN_ID is required")
-    # Inside the sandbox container, the container itself is the isolation boundary, so
-    # the phases run as plain subprocesses. The store is whatever the profile selects.
-    store = build_store(get_settings())
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    if not project:
+        raise RuntimeError("GOOGLE_CLOUD_PROJECT is required")
+    # The sandbox image intentionally omits the application's configuration and ADK stack.
+    # Its handoff is always Firestore; selecting a default local profile here previously
+    # opened SQLite and made every Cloud Run sandbox request appear missing.
+    store = FirestoreJobStore(project)
     run = await store.get_sandbox_run(run_id)
     if run is None:
         raise RuntimeError(f"sandbox request {run_id} was not found")

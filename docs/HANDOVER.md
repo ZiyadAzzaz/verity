@@ -1,8 +1,10 @@
 # Verity — Complete Handover
 
+> **Historical snapshot (2026-08-22).** It is no longer the source of truth. Use
+> [STATE.md](STATE.md) and [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md).
+
 **Updated:** 2026-08-22
-**Single source of truth.** `STATUS.md`, `DOCKER-FIX.md`, and `PIVOT-STATUS.md` are folded
-into this document and kept only for history.
+`STATUS.md`, `DOCKER-FIX.md`, and `PIVOT-STATUS.md` were folded into this historical handover.
 
 ---
 

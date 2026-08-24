@@ -1,5 +1,5 @@
-> **Superseded by [HANDOVER.md](HANDOVER.md)**, which consolidates everything into one
-> document. This file is kept for history only.
+> **Historical snapshot.** Superseded by [STATE.md](STATE.md) and
+> [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md).
 
 # Verity — Full Status Report
 

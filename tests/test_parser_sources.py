@@ -173,3 +173,28 @@ def test_non_github_sources_are_untouched() -> None:
     assert (
         len(fetcher._github_readme_candidates("https://example.com/claim", SourceType.VENDOR)) == 1
     )
+
+
+async def test_readme_probe_never_auto_follows_an_unvalidated_redirect() -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        if request.url.host == "127.0.0.1":
+            raise AssertionError("the HEAD probe followed an unvalidated private redirect")
+        return httpx.Response(
+            302,
+            headers={"Location": "https://127.0.0.1/internal"},
+            request=request,
+        )
+
+    candidate = "https://raw.githubusercontent.com/example/project/HEAD/README.md"
+    fetcher = SourceFetcher(validate_dns=False, transport=httpx.MockTransport(handler))
+    async with httpx.AsyncClient(
+        transport=fetcher._transport,
+        follow_redirects=False,
+    ) as client:
+        selected = await fetcher._first_that_exists(client, [candidate, candidate + ".rst"])
+
+    assert selected == candidate
+    assert seen == [candidate]

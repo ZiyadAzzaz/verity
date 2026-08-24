@@ -12,6 +12,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -19,7 +20,7 @@ from verity.agents.debug import DebugAgent
 from verity.agents.environment import EnvironmentAgent
 from verity.config import get_settings
 from verity.container import build_model_client, build_sandbox
-from verity.models import Claim, ExecutionPlan, ParsedClaim, SourceType
+from verity.models import Claim, ExecutionPlan, ParsedClaim, PatchOperation, SourceType
 from verity.store import MemoryJobStore
 
 BROKEN_REPO = "https://github.com/ghing/nicar2016-python-testing-debugging-exercises"
@@ -48,11 +49,11 @@ async def main() -> None:
     await sandbox.preflight()
     environment = EnvironmentAgent(sandbox)
     debugger = DebugAgent(build_model_client(settings))
-    patches = []
-    command_override = None
+    patches: list[PatchOperation] = []
+    command_override: list[str] | None = None
     result = await environment.run("broken-repo-proof", parsed, patches)
     print(json.dumps({"initial": result.model_dump(mode="json")}, indent=2))
-    attempts = []
+    attempts: list[dict[str, Any]] = []
     for attempt in range(1, 4):
         if result.succeeded:
             break

@@ -89,6 +89,17 @@
     padding:7px 14px;
     color:rgba(243,239,228,0.85);
   }
+  .warning{
+    margin-top:24px;
+    max-width:760px;
+    padding:15px 18px;
+    border:1px solid rgba(201,122,43,0.65);
+    border-left:4px solid var(--flagged);
+    border-radius:8px;
+    background:rgba(201,122,43,0.09);
+    color:rgba(243,239,228,0.82);
+    font-size:13px;
+  }
 
   /* ---- section shell ---- */
   section{padding:64px 0; border-bottom:1px solid var(--line);}
@@ -323,13 +334,13 @@
     <div class="stamp-row">
       <span class="stamp">Gemini 3.5 Flash</span>
       <span class="stamp">Google ADK</span>
-      <span class="stamp">Cloud Run</span>
-      <span class="stamp">Pub/Sub</span>
-      <span class="stamp">Firestore</span>
-      <span class="stamp">Cloud Trace</span>
+      <span class="stamp">Cloud design · blocked</span>
       <span class="stamp">Docker</span>
       <span class="stamp">SQLite</span>
     </div>
+    <div class="warning"><b>Audit status:</b> the local Docker profile is tested. The cloud
+      profile below is a design target and is intentionally blocked in production until its
+      sandbox uses a credential-free handoff and passes real cloud isolation tests.</div>
   </header>
 
   <section>
@@ -343,27 +354,27 @@
       <div class="stack-card">
         <div class="role">Agent Framework</div>
         <div class="name">Google ADK</div>
-        <div class="desc">Orchestrates the four-agent pipeline as typed, testable agents rather than one large prompt.</div>
+        <div class="desc">Typed ADK LlmAgent calls power Parser and Debug; the durable four-role state machine is explicit Python.</div>
       </div>
       <div class="stack-card">
         <div class="role">Compute</div>
-        <div class="name">Cloud Run</div>
-        <div class="desc">Hosts the API and the agent pipeline; ephemeral Cloud Run Jobs run sandboxed verification code.</div>
+        <div class="name">Docker proven · Cloud Run experimental</div>
+        <div class="desc">Local execution is tested in disposable Docker containers. Cloud Run adapters exist but production is fail-closed.</div>
       </div>
       <div class="stack-card">
         <div class="role">Messaging</div>
-        <div class="name">Pub/Sub</div>
-        <div class="desc">Decouples job intake from processing — makes the pipeline genuinely asynchronous, not a chat loop.</div>
+        <div class="name">Async queue · Pub/Sub design</div>
+        <div class="desc">Local intake is asynchronous. Pub/Sub is wired but needs a verified OIDC worker boundary before deployment.</div>
       </div>
       <div class="stack-card">
         <div class="role">State &amp; Memory</div>
-        <div class="name">Firestore</div>
-        <div class="desc">Job status, agent trace log, and a memory bank of previously-verified claims for instant dedup.</div>
+        <div class="name">SQLite proven · Firestore design</div>
+        <div class="desc">SQLite stores real jobs, trace, and cache locally. Firestore code exists but has no live-cloud proof.</div>
       </div>
       <div class="stack-card">
         <div class="role">Observability</div>
         <div class="name">Cloud Trace / Logging</div>
-        <div class="desc">Full trace of every agent decision and retry — the evidence a judge can watch happen live.</div>
+        <div class="desc">Telemetry bootstrap is wired in API and worker code; no real Cloud Trace/Logging record has been observed.</div>
       </div>
       <div class="stack-card">
         <div class="role">Output</div>
@@ -372,8 +383,8 @@
       </div>
       <div class="stack-card">
         <div class="role">Frontend</div>
-        <div class="name">Cloud Run web app</div>
-        <div class="desc">Minimal UI: submit a claim URL, watch live status, view the filed verdict.</div>
+        <div class="name">FastAPI web app</div>
+        <div class="desc">Minimal UI works locally: submit a claim URL, watch status, and view the filed verdict.</div>
       </div>
     </div>
   </section>
@@ -394,7 +405,7 @@
         <div class="stage-body">
           <h3>Environment Agent</h3>
           <p>Spins up an ephemeral sandbox, clones the target repo, installs dependencies, and attempts the evaluation run.</p>
-          <div class="uses">executes on &rarr; <b>Cloud Run Job</b> (containerized, ephemeral)</div>
+          <div class="uses">executes on &rarr; <b>Docker</b> locally · <b>Cloud Run Job</b> experimental</div>
         </div>
       </div>
       <div class="stage">
@@ -402,7 +413,7 @@
         <div class="stage-body">
           <h3>Debug Agent <span class="loop-tag">retry loop &middot; capped at 3</span></h3>
           <p>On failure, reads the stack trace, proposes and applies a patch, retries. Reports an honest failure if unresolved after three attempts — a deliberate design choice, not a limitation to hide.</p>
-          <div class="uses">reasons with &rarr; <b>Gemini 3.5 Flash</b> · logs every attempt to <b>Firestore</b></div>
+          <div class="uses">reasons with &rarr; <b>Gemini 3.5 Flash</b> · logs every attempt to the <b>JobStore</b></div>
         </div>
       </div>
       <div class="stage">
@@ -410,7 +421,7 @@
         <div class="stage-body">
           <h3>Reporter Agent</h3>
           <p>Writes the structured verdict — claimed vs. actual result, what was fixed, confidence level — and files it as the final artifact.</p>
-          <div class="uses">delivers via &rarr; <b>GitHub API</b> + writes back to <b>Firestore</b></div>
+          <div class="uses">delivers via &rarr; <b>GitHub API</b> + writes back to the <b>JobStore</b></div>
         </div>
       </div>
     </div>
@@ -459,7 +470,7 @@
 
         <!-- Agent pipeline group -->
         <rect class="grp" x="70" y="262" width="760" height="150"/>
-        <text class="grp-label" x="88" y="282">ADK agent pipeline &middot; Cloud Run job</text>
+        <text class="grp-label" x="88" y="282">Cloud design target &middot; production blocked</text>
 
         <rect class="node" x="100" y="300" width="150" height="70"/>
         <text class="node-title" x="175" y="328" text-anchor="middle">Parser</text>
@@ -504,7 +515,7 @@
         <text class="node-sub" x="450" y="576" text-anchor="middle">final autonomous artifact</text>
       </svg>
     </div>
-    <p class="cap">This is the <b>cloud profile</b>. Cloud Trace and Cloud Logging thread through every node above — not shown as a separate box because every box writes to it. The same agent graph runs locally against SQLite, an in-process queue, and Docker; see section 04.</p>
+    <p class="cap">This is the <b>unverified cloud design</b>, not a deployed system. The current sandbox-to-Firestore handoff exposes project credentials to untrusted code, so production configuration and the deploy script fail closed. The tested local profile uses SQLite, an in-process queue, and Docker; see section 04.</p>
   </section>
 
   <section>
@@ -513,8 +524,8 @@
       The four agents depend on four interfaces, never on a vendor SDK. A single setting,
       <code>VERITY_ENV</code>, chooses which implementations get wired in — and
       <code>verity/container.py</code> is the only module in the project that imports a concrete
-      backend. Nothing else branches on it: not an agent, not a pipeline step, not a test.
-      The local profile needs no Google Cloud project, no billing account, and no card.
+      backend. The local profile needs no Google Cloud project, no billing account, and no card.
+      The cloud column is an adapter map, not a readiness claim.
     </p>
     <div class="swap-scroll"><table class="swap">
       <thead>
@@ -548,7 +559,7 @@
           <td class="seam">Untrusted execution</td>
           <td class="impl">SandboxBackend</td>
           <td class="impl local">DockerSandboxBackend</td>
-          <td class="impl">CloudRunJobBackend</td>
+          <td class="impl">CloudRunJobBackend · blocked in production</td>
         </tr>
       </tbody>
     </table></div>
@@ -585,7 +596,7 @@
     <div class="res-list">
       <div class="res-item">
         <div class="tag">Cloud credits</div>
-        <div class="body"><b>$150 in Google Cloud credits</b> — claimed via the credit form on the hackathon's Resources tab, after signing up for the no-cost Google Cloud trial. Covers Cloud Run, Pub/Sub, and Firestore usage for the whole build.</div>
+        <div class="body"><b>$150 in Google Cloud credits may be available</b> through the hackathon Resources tab. Project ownership, billing linkage, and remaining credit were not verified in this audit.</div>
       </div>
       <div class="res-item">
         <div class="tag">GEAR program</div>
@@ -593,7 +604,7 @@
       </div>
       <div class="res-item">
         <div class="tag">Cost control</div>
-        <div class="body">The Resources tab includes cost-saving tips: set billing alerts in Cloud Console, and protect public Cloud Run URLs with API keys/auth so stray traffic can't drain the credit balance.</div>
+        <div class="body">Billing alerts only notify; they do not cap spend. Before any future deployment, add an operational shutdown procedure and protect every public or internal endpoint with validated identity/auth.</div>
       </div>
     </div>
   </section>

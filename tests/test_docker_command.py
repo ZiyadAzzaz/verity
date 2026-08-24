@@ -22,6 +22,8 @@ from verity.agents.environment import (
 )
 from verity.interfaces import SandboxUnavailableError
 
+COMMIT = "a" * 40
+
 
 @pytest.fixture
 def recorded(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
@@ -30,6 +32,8 @@ def recorded(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 
     def fake_run_process(command, *, cwd, timeout, max_chars, env=None):
         calls.append(list(command))
+        if "rev-parse" in command:
+            return 0, COMMIT + "\n", ""
         return 0, "", ""
 
     monkeypatch.setattr("verity.agents.environment._run_process", fake_run_process)
@@ -158,7 +162,7 @@ async def test_phases_use_the_intended_network_and_interpreter(
         for command in recorded
     ]
     networks = [network for network, _args, _entry in phases]
-    assert networks == ["bridge", "none", "bridge", "none"], (
+    assert networks == ["bridge", "none", "none", "bridge", "none"], (
         "clone and install may reach the network; the benchmark itself may not"
     )
 
@@ -168,15 +172,101 @@ async def test_phases_use_the_intended_network_and_interpreter(
 
     # The interpreter becomes the container entrypoint, so a `pip`/`pytest` argv from the
     # execution plan can never resolve to some other binary inside the image.
-    install_network, install_args, install_entrypoint = phases[2]
+    revision_network, revision_args, revision_entrypoint = phases[1]
+    assert revision_network == "none"
+    assert revision_entrypoint == "git"
+    assert revision_args == [
+        "-c",
+        f"safe.directory={CONTAINER_REPO}",
+        "rev-parse",
+        "--verify",
+        "HEAD^{commit}",
+    ]
+
+    install_network, install_args, install_entrypoint = phases[3]
     assert install_entrypoint == "/work/venv/bin/python"
     assert install_args[:3] == ["-m", "pip", "install"]
     assert install_network == "bridge"
 
-    evaluate_network, evaluate_args, evaluate_entrypoint = phases[3]
+    evaluate_network, evaluate_args, evaluate_entrypoint = phases[4]
     assert evaluate_entrypoint == "/work/venv/bin/python"
     assert evaluate_args == ["evaluate.py"]
     assert evaluate_network == "none"
+
+
+async def test_a_full_commit_uses_detached_fetch_instead_of_clone_branch(
+    backend, recorded, parsed_claim, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(DockerSandboxBackend, "preflight", _noop_preflight)
+    parsed = parsed_claim.model_copy(deep=True)
+    parsed.execution.revision = COMMIT
+
+    result = await backend.run("job-pinned", parsed, [], None)
+
+    git_calls = [
+        command[command.index(backend._image) + 1 :]
+        for command in recorded
+        if command[command.index("--entrypoint") + 1] == "git"
+    ]
+    assert git_calls[:5] == [
+        ["init", CONTAINER_REPO],
+        [
+            "-c",
+            f"safe.directory={CONTAINER_REPO}",
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/example/project.git",
+        ],
+        [
+            "-c",
+            f"safe.directory={CONTAINER_REPO}",
+            "fetch",
+            "--depth",
+            "1",
+            "origin",
+            COMMIT,
+        ],
+        [
+            "-c",
+            f"safe.directory={CONTAINER_REPO}",
+            "checkout",
+            "--detach",
+            "FETCH_HEAD",
+        ],
+        [
+            "-c",
+            f"safe.directory={CONTAINER_REPO}",
+            "rev-parse",
+            "--verify",
+            "HEAD^{commit}",
+        ],
+    ]
+    assert not any("--branch" in call for call in git_calls)
+    assert result.repository_commit == COMMIT
+
+
+async def test_a_named_revision_still_uses_shallow_clone_branch(
+    backend, recorded, parsed_claim, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(DockerSandboxBackend, "preflight", _noop_preflight)
+    parsed = parsed_claim.model_copy(deep=True)
+    parsed.execution.revision = "v7.0"
+
+    result = await backend.run("job-tag", parsed, [], None)
+
+    clone = recorded[0]
+    image_index = clone.index(backend._image)
+    assert clone[image_index + 1 :] == [
+        "clone",
+        "--depth",
+        "1",
+        "--branch",
+        "v7.0",
+        "https://github.com/example/project.git",
+        CONTAINER_REPO,
+    ]
+    assert result.repository_commit == COMMIT
 
 
 async def _noop_preflight(self) -> None:

@@ -23,7 +23,9 @@ import pytest
 from verity.models import (
     ClaimSignificance,
     EnvironmentResult,
+    JobStatus,
     VerdictStatus,
+    conditions_require_comparison_provenance,
     looks_environment_incompatible,
 )
 
@@ -69,7 +71,7 @@ class TestEnvironmentIncompatibility:
             "ConnectionRefusedError: [Errno 111] Connection refused",
             "urllib3.exceptions.NewConnectionError: Failed to establish a new connection",
             "OSError: [Errno 101] Network is unreachable",
-            "ssl.SSLError: [SSL] record layer failure while downloading dataset",
+            "ssl.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed",
         ],
     )
     def test_blocked_network_signatures_are_detected(self, stderr: str) -> None:
@@ -86,6 +88,8 @@ class TestEnvironmentIncompatibility:
             "FileNotFoundError: weights.pt",
             "SyntaxError: invalid syntax",
             "ValueError: shapes (3,4) and (5,6) not aligned",
+            "ValueError: ssl parameter is invalid",
+            "TimeoutError: read timed out while evaluating a local lock",
         ],
     )
     def test_genuine_failures_are_not_mistaken_for_network_blocks(self, stderr: str) -> None:
@@ -126,12 +130,23 @@ def test_every_verdict_status_means_exactly_one_thing() -> None:
         VerdictStatus.VERIFIED: "reproduced within tolerance",
         VerdictStatus.CONTRADICTED: "reproduced outside tolerance",
         VerdictStatus.INCONCLUSIVE: "ran clean but produced no attributable metric",
+        VerdictStatus.CONDITIONS_NOT_COMPARABLE: (
+            "ran and observed a metric, but material conditions were not comparable"
+        ),
         VerdictStatus.COULD_NOT_VERIFY: "genuinely attempted, did not reproduce",
         VerdictStatus.NO_VERIFIABLE_CLAIM_FOUND: "the source asserts no result worth checking",
         VerdictStatus.ENVIRONMENT_INCOMPATIBLE: "our sandbox could not host this, untested",
     }
     assert set(meanings) == set(VerdictStatus), "a new status must be given a distinct meaning"
     assert len(set(meanings.values())) == len(meanings)
+
+
+@pytest.mark.parametrize(
+    ("metric", "expected"),
+    [("median latency", True), ("training_time", True), ("accuracy", False), ("BLEU", False)],
+)
+def test_condition_sensitive_metrics_are_classified(metric: str, expected: bool) -> None:
+    assert conditions_require_comparison_provenance(metric) is expected
 
 
 # --- pipeline behaviour -----------------------------------------------------------------
@@ -280,6 +295,50 @@ async def test_a_genuine_failure_is_still_could_not_verify(tmp_path, parsed_clai
     store.close()
 
 
+async def test_timing_measurement_is_not_called_a_contradiction(parsed_claim) -> None:
+    parsed = parsed_claim.model_copy(
+        update={
+            "claim": parsed_claim.claim.model_copy(
+                update={"metric": "median latency", "value": 0.1, "unit": "ms"}
+            )
+        }
+    )
+    verdict = await ReporterAgent(NoopIssuePublisher()).run(
+        "job-timing",
+        parsed,
+        EnvironmentResult(
+            succeeded=True,
+            exit_code=0,
+            phase="metric",
+            actual_value=0.352,
+            duration_seconds=1.0,
+        ),
+        [],
+    )
+    assert verdict.status == VerdictStatus.CONDITIONS_NOT_COMPARABLE
+    assert verdict.actual_value == 0.352
+    assert "not comparable" in verdict.summary
+    assert "no verification or contradiction is asserted" in verdict.summary
+
+
+async def test_failed_process_never_persists_an_intermediate_metric(parsed_claim) -> None:
+    verdict = await ReporterAgent(NoopIssuePublisher()).run(
+        "job-failed-metric",
+        parsed_claim,
+        EnvironmentResult(
+            succeeded=False,
+            exit_code=1,
+            phase="evaluate",
+            stdout="accuracy: 71.0",
+            actual_value=71.0,
+            duration_seconds=1.0,
+        ),
+        [],
+    )
+    assert verdict.status == VerdictStatus.COULD_NOT_VERIFY
+    assert verdict.actual_value is None
+
+
 # --- every terminal outcome must file its artifact ----------------------------------------
 # Proven with a recording double rather than a live GitHub write: the question is whether the
 # pipeline *calls* the publisher, and a double answers that exactly as well while touching
@@ -296,6 +355,11 @@ class RecordingPublisher:
     async def publish(self, parsed_claim, title: str, body: str) -> str:
         self.calls.append({"title": title, "body": body, "url": str(parsed_claim.source_url)})
         return self.url
+
+
+class FailingPublisher:
+    async def publish(self, parsed_claim, title: str, body: str) -> str:
+        raise RuntimeError("publisher unavailable")
 
 
 def build_with_publisher(store, parsed, sandbox, debugger, publisher):
@@ -373,4 +437,29 @@ async def test_a_missing_token_degrades_without_losing_the_verdict(tmp_path, par
     assert finished is not None and finished.verdict is not None
     assert finished.verdict.status == VerdictStatus.VERIFIED
     assert finished.verdict.issue_url is None, "no token means no artifact, and that is fine"
+    store.close()
+
+
+async def test_short_circuit_artifact_failure_is_not_cached_as_complete(
+    tmp_path, parsed_claim
+) -> None:
+    store = SQLiteJobStore(tmp_path / "v.db")
+    parsed = parsed_claim.model_copy(
+        update={"claim_significance": ClaimSignificance.INCIDENTAL_STATISTIC}
+    )
+    job, _ = await store.create_or_get(str(parsed.source_url))
+    await build_with_publisher(
+        store,
+        parsed,
+        CountingSandbox(SUCCESS),
+        CountingDebugger(),
+        FailingPublisher(),
+    ).process(job.id)
+
+    finished = await store.get_job(job.id)
+    assert finished is not None and finished.verdict is not None
+    assert finished.status == JobStatus.FAILED
+    assert finished.verdict.status == VerdictStatus.NO_VERIFIABLE_CLAIM_FOUND
+    assert finished.verdict.artifact_error
+    assert finished.error == finished.verdict.artifact_error
     store.close()

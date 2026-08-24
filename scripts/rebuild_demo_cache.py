@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT))
 
 os.environ["VERITY_ALLOW_DEMO_CACHE_WRITES"] = "1"
 
+from verity.models import JobRecord, TraceEvent  # noqa: E402
 from verity.sqlite_store import SQLiteJobStore  # noqa: E402
 
 DEMO_DB = ROOT / "docs" / "assets" / "demo-cache" / "verity-demo.db"
@@ -48,12 +49,13 @@ ISSUE_URLS: dict[str, str] = {
 }
 
 
-async def collect(url: str, source_db: str):
+async def collect(url: str, source_db: str) -> tuple[JobRecord, list[TraceEvent]] | None:
     """Find the completed job for this URL in the database that produced it."""
     if not Path(source_db).is_file():
         return None
-    connection = sqlite3.connect(source_db)
-    store = SQLiteJobStore(source_db)
+    read_uri = Path(source_db).resolve().as_uri() + "?mode=ro&immutable=1"
+    connection = sqlite3.connect(read_uri, uri=True)
+    store = SQLiteJobStore(source_db, read_only=True)
     try:
         found = None
         for (job_id,) in connection.execute("select id from jobs"):
@@ -67,7 +69,7 @@ async def collect(url: str, source_db: str):
 
 
 async def run(dry_run: bool) -> int:
-    collected = []
+    collected: list[tuple[str, JobRecord, list[TraceEvent]]] = []
     for url, source_db in SOURCES.items():
         item = await collect(url, source_db)
         if item is None:
@@ -82,7 +84,9 @@ async def run(dry_run: bool) -> int:
             f"actual={verdict.actual_value!s:6} {url}"
         )
 
-    outcomes = sorted({job.verdict.status.value for _u, job, _t in collected})
+    outcomes = sorted(
+        {job.verdict.status.value for _u, job, _t in collected if job.verdict is not None}
+    )
     print(f"\n  {len(collected)} jobs covering {len(outcomes)} outcomes: {', '.join(outcomes)}")
 
     if dry_run:
@@ -108,7 +112,9 @@ async def run(dry_run: bool) -> int:
             verdict = job.verdict
             assert verdict is not None
             if url in ISSUE_URLS:
-                verdict = verdict.model_copy(update={"issue_url": ISSUE_URLS[url]})
+                payload = verdict.model_dump(mode="python")
+                payload["issue_url"] = ISSUE_URLS[url]
+                verdict = type(verdict).model_validate(payload)
             await destination.complete_job(fresh.id, verdict)
     finally:
         destination.close()

@@ -10,6 +10,7 @@ from verity.models import (
     ParsedClaim,
     Verdict,
     VerdictStatus,
+    conditions_require_comparison_provenance,
     failure_excerpt,
 )
 
@@ -34,6 +35,8 @@ class ReporterAgent:
         title, body = render_issue(verdict, parsed_claim, job_id)
         try:
             issue_url = await self._issues.publish(parsed_claim, title, body)
+            if issue_url:
+                verdict = self._with_issue_url(verdict, issue_url)
         except Exception as exc:
             return verdict.model_copy(
                 update={
@@ -42,9 +45,15 @@ class ReporterAgent:
                     ]
                 }
             )
-        if issue_url:
-            verdict = verdict.model_copy(update={"issue_url": issue_url})
         return verdict
+
+    @staticmethod
+    def _with_issue_url(verdict: Verdict, issue_url: str) -> Verdict:
+        """Validate publisher output instead of bypassing ``HttpUrl`` via model_copy."""
+
+        payload = verdict.model_dump(mode="python")
+        payload["issue_url"] = issue_url
+        return Verdict.model_validate(payload)
 
     async def run(
         self,
@@ -57,6 +66,8 @@ class ReporterAgent:
         evidence: list[str] = []
         if result.sandbox_execution:
             evidence.append(f"Cloud Run execution: {result.sandbox_execution}")
+        if result.repository_commit:
+            evidence.append(f"Repository commit: {result.repository_commit}")
         evidence.append(
             f"Final process phase={result.phase}, exit_code={result.exit_code}, "
             f"duration={result.duration_seconds:.2f}s"
@@ -87,6 +98,15 @@ class ReporterAgent:
                 "The evaluation command exited successfully, but its output did not contain a "
                 "defensibly attributable value for the claimed metric."
             )
+        elif conditions_require_comparison_provenance(claim.metric):
+            status = VerdictStatus.CONDITIONS_NOT_COMPARABLE
+            confidence = Confidence.HIGH
+            summary = (
+                f"The run observed {claim.metric} = {result.actual_value:g}{claim.unit}, but "
+                "this metric depends materially on hardware or runtime conditions. Verity "
+                "did not establish conditions equivalent to the claim, so the measurements "
+                "are not comparable and no verification or contradiction is asserted."
+            )
         else:
             tolerance = max(abs(claim.value) * self._tolerance, 0.01)
             difference = abs(result.actual_value - claim.value)
@@ -108,13 +128,16 @@ class ReporterAgent:
         fixes = [
             f"{operation.kind} {operation.path}"
             for attempt in attempts
+            if not attempt.outcome.stderr.startswith("Patch application failed:")
             for operation in attempt.proposal.operations
         ]
         verdict = Verdict(
             status=status,
             confidence=confidence,
             claim=claim,
-            actual_value=result.actual_value,
+            # A failed process may have printed an intermediate number before exiting. It is
+            # evidence, not a reproduced result, and must never populate the verdict field.
+            actual_value=result.actual_value if result.succeeded else None,
             summary=summary,
             fixes_applied=fixes,
             evidence=evidence,
@@ -123,6 +146,8 @@ class ReporterAgent:
         title, body = render_issue(verdict, parsed_claim, job_id)
         try:
             issue_url = await self._issues.publish(parsed_claim, title, body)
+            if issue_url:
+                verdict = self._with_issue_url(verdict, issue_url)
         except Exception as exc:
             return verdict.model_copy(
                 update={
@@ -131,6 +156,4 @@ class ReporterAgent:
                     ]
                 }
             )
-        if issue_url:
-            verdict = verdict.model_copy(update={"issue_url": issue_url})
         return verdict

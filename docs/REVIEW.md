@@ -1,5 +1,8 @@
 # Verity — Where We Are, and What I'd Change
 
+> **Historical snapshot (2026-08-23).** Use [STATE.md](STATE.md) and
+> [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md) for current facts.
+
 **Date:** 2026-08-23 · `main` @ `c7b53ff` · **149 tests passing**
 **Code:** https://github.com/ZiyadAzzaz/verity ·
 **Verdicts:** https://github.com/ZiyadAzzaz/verity-reports

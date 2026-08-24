@@ -11,6 +11,30 @@ import httpx
 from verity.models import ParsedClaim, Verdict, VerdictStatus
 
 REPO_NAME = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+MENTION = re.compile(r"@(?=[A-Za-z0-9])")
+MARKDOWN_SPECIAL = re.compile(r"([\\`*\[\]<>|])")
+
+
+def _neutralize_mentions(value: str) -> str:
+    """Prevent untrusted source/model text from notifying GitHub users or teams."""
+
+    return MENTION.sub("@\u200b", value)
+
+
+def _inline(value: object) -> str:
+    """Render untrusted text as one escaped Markdown line."""
+
+    flattened = " ".join(str(value).split())
+    return MARKDOWN_SPECIAL.sub(r"\\\1", _neutralize_mentions(flattened))
+
+
+def _code_block(value: str) -> str:
+    """Fence arbitrary output without allowing an embedded fence to escape."""
+
+    text = _neutralize_mentions(value.strip())
+    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
+    fence = "`" * max(3, longest + 1)
+    return f"{fence}\n{text}\n{fence}"
 
 
 class IssuePublisher(Protocol):
@@ -76,14 +100,16 @@ class GitHubIssuePublisher:
 
 def render_issue(verdict: Verdict, parsed_claim: ParsedClaim, job_id: str) -> tuple[str, str]:
     claim = verdict.claim
-    title = f"[Verity: {verdict.status.value}] {claim.metric} on {claim.dataset}"
+    title = f"[Verity: {verdict.status.value}] {_inline(claim.metric)} on {_inline(claim.dataset)}"
     actual = (
-        "not captured" if verdict.actual_value is None else f"{verdict.actual_value:g}{claim.unit}"
+        "not captured"
+        if verdict.actual_value is None
+        else f"{verdict.actual_value:g}{_inline(claim.unit)}"
     )
     attempts = (
         "\n".join(
             f"- Attempt {attempt.attempt}: `{attempt.outcome.phase}` / exit "
-            f"`{attempt.outcome.exit_code}` — {attempt.proposal.diagnosis}"
+            f"`{attempt.outcome.exit_code}` — {_inline(attempt.proposal.diagnosis)}"
             for attempt in verdict.attempts
         )
         or "- No debug retry was required."
@@ -92,11 +118,15 @@ def render_issue(verdict: Verdict, parsed_claim: ParsedClaim, job_id: str) -> tu
     # above it described a runner script being written. The heading now states whether any
     # fix actually worked, and the list covers everything attempted.
     if verdict.fixes_applied:
-        succeeded = verdict.status is VerdictStatus.VERIFIED
+        reproduced = verdict.status in {
+            VerdictStatus.VERIFIED,
+            VerdictStatus.CONTRADICTED,
+            VerdictStatus.CONDITIONS_NOT_COMPARABLE,
+        }
         fixes_heading = (
-            "Fixes applied" if succeeded else "Fixes attempted (none produced a reproduction)"
+            "Fixes applied" if reproduced else "Fixes attempted (none produced a reproduction)"
         )
-        fixes = "\n".join(f"- {fix}" for fix in verdict.fixes_applied)
+        fixes = "\n".join(f"- {_inline(fix)}" for fix in verdict.fixes_applied)
     else:
         fixes_heading = "Fixes attempted"
         fixes = "- None. No patch was proposed or applied."
@@ -108,31 +138,34 @@ def render_issue(verdict: Verdict, parsed_claim: ParsedClaim, job_id: str) -> tu
         if "\n" in item or len(item) > 220:
             label, _, detail = item.partition(": ")
             rendered.append(
-                f"<details><summary><code>{label or 'output'}</code></summary>\n\n"
-                f"```\n{(detail or item).strip()}\n```\n\n</details>"
+                f"<details><summary><code>{_inline(label or 'output')}</code></summary>\n\n"
+                f"{_code_block(detail or item)}\n\n</details>"
             )
         else:
-            rendered.append(f"- {item}")
+            rendered.append(f"- {_inline(item)}")
     evidence = "\n".join(rendered) or "- No metric evidence captured."
+    observed_label = (
+        "Observed" if verdict.status is VerdictStatus.CONDITIONS_NOT_COMPARABLE else "Reproduced"
+    )
     body = f"""## Verity verdict
 
 | Field | Result |
 |---|---|
 | Status | **{verdict.status.value}** |
 | Confidence | {verdict.confidence.value} |
-| Claimed | {claim.value:g}{claim.unit} |
-| Reproduced | {actual} |
-| Metric | {claim.metric} |
-| Dataset | {claim.dataset} |
+| Claimed | {claim.value:g}{_inline(claim.unit)} |
+| {observed_label} | {actual} |
+| Metric | {_inline(claim.metric)} |
+| Dataset | {_inline(claim.dataset)} |
 
-{verdict.summary}
+{_inline(verdict.summary)}
 
 ### Source
 
-- URL: {parsed_claim.source_url}
-- Location: {claim.source_location}
-- Evidence: {parsed_claim.evidence_excerpt}
-- Conditions: {", ".join(claim.conditions) or "not stated"}
+- URL: <{parsed_claim.source_url}>
+- Location: {_inline(claim.source_location)}
+- Evidence: {_inline(parsed_claim.evidence_excerpt)}
+- Conditions: {_inline(", ".join(claim.conditions) or "not stated")}
 
 ### Debug trail
 
@@ -147,7 +180,7 @@ def render_issue(verdict: Verdict, parsed_claim: ParsedClaim, job_id: str) -> tu
 {evidence}
 
 ---
-Generated autonomously by Verity job `{job_id}`. A successful process alone is not treated
+Generated autonomously by Verity job `{_inline(job_id)}`. A successful process alone is not treated
 as proof; the verdict is based on the captured metric and the complete retry trail.
 """
     return title, body

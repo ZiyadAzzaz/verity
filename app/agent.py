@@ -1,8 +1,9 @@
-"""Google ADK declarations for Verity's four named agents.
+"""Declarative Google ADK view of Verity's four named roles.
 
-The durable background runner in `verity.pipeline` invokes the same four roles with
-durable checkpoints around every side effect; these declarations make the agent graph
-inspectable and runnable with ADK tooling.
+The production-shaped runtime is the custom durable state machine in ``verity.pipeline``.
+Parser and Debug model calls in that runtime use typed, short-lived ADK ``LlmAgent``
+instances through ``verity.llm``. This sequential declaration has no execution tools and is
+therefore an inspection/design surface, not an alternative executable verification path.
 """
 
 from google.adk.agents import LlmAgent, SequentialAgent
@@ -54,7 +55,7 @@ reporter_agent = LlmAgent(
 root_agent = SequentialAgent(
     name="verity_pipeline",
     sub_agents=[parser_agent, environment_agent, debug_agent, reporter_agent],
-    description="Four-agent AI claim verification pipeline with durable bounded execution.",
+    description="Declarative view of the four Verity roles; durable execution lives in code.",
 )
 
 app = App(root_agent=root_agent, name="app")

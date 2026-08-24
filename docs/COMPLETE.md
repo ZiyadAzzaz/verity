@@ -1,5 +1,8 @@
 # Verity — Complete Project Record
 
+> **Historical snapshot (2026-08-23).** Use [STATE.md](STATE.md) and
+> [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md) for current facts and test counts.
+
 **Updated:** 2026-08-23 · `main` @ `ff96a6f` · **119 tests passing**
 **Code:** https://github.com/ZiyadAzzaz/verity (public)
 **Filed verdicts:** https://github.com/ZiyadAzzaz/verity-reports (public)

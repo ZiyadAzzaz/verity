@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,31 @@ def test_extract_metric_uses_explicit_pattern() -> None:
     )
     assert value == 91.25
     assert evidence and "validation accuracy" in evidence
+
+
+def test_extract_metric_rejects_a_pattern_without_exactly_one_capture() -> None:
+    value, evidence = _extract_metric(
+        "unrelated result: 91.25",
+        "accuracy",
+        r"unrelated result: [0-9.]+",
+    )
+    assert value is None and evidence is None
+
+
+def test_extract_metric_timeboxes_pathological_model_regex() -> None:
+    started = time.monotonic()
+    value, evidence = _extract_metric("a" * 50_000 + "!", "accuracy", r"(a+)+$")
+    assert value is None and evidence is None
+    assert time.monotonic() - started < 5
+
+
+def test_extract_metric_uses_the_final_metric_occurrence() -> None:
+    value, _evidence = _extract_metric(
+        "accuracy: 80\naccuracy: 91.25\n",
+        "accuracy",
+        None,
+    )
+    assert value == 91.25
 
 
 def test_patch_requires_exactly_one_match(tmp_path) -> None:

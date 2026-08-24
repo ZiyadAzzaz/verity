@@ -1,5 +1,5 @@
-> **Superseded by [HANDOVER.md](HANDOVER.md)**, which consolidates everything into one
-> document. This file is kept for history only.
+> **Historical machine-repair record.** Use [STATE.md](STATE.md) and
+> [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md) for current project status.
 
 # Docker on this machine — root cause and the move to E:\wsl
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shutil
 import sqlite3
 from pathlib import Path
 
@@ -36,8 +37,7 @@ def read_shipped() -> list[dict]:
     """Open read-only so the gate can never be the thing that mutates the fixture."""
 
     async def collect() -> list[dict]:
-        os.environ[ALLOW_DEMO_WRITES] = "1"
-        store = SQLiteJobStore(DEMO_DB)
+        store = SQLiteJobStore(DEMO_DB, read_only=True)
         try:
             connection = sqlite3.connect(DEMO_DB)
             rows = []
@@ -57,7 +57,6 @@ def read_shipped() -> list[dict]:
             return rows
         finally:
             store.close()
-            os.environ.pop(ALLOW_DEMO_WRITES, None)
 
     return asyncio.run(collect())
 
@@ -113,3 +112,11 @@ class TestWriteGuard:
         guard_demo_cache(tmp_path / "verity-demo.db")  # right name, wrong directory
         store = SQLiteJobStore(tmp_path / "scratch.db")
         store.close()
+
+    def test_read_only_inspection_creates_no_wal_sidecars(self, tmp_path: Path) -> None:
+        copy = tmp_path / "fixture.db"
+        shutil.copy2(DEMO_DB, copy)
+        store = SQLiteJobStore(copy, read_only=True)
+        store.close()
+        assert not copy.with_name(copy.name + "-wal").exists()
+        assert not copy.with_name(copy.name + "-shm").exists()

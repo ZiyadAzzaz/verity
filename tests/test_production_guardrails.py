@@ -1,12 +1,15 @@
 """Production configuration must refuse anything that weakens the isolation boundary.
 
 `host_subprocess` runs untrusted third-party code directly on the host with no container
-around it. It exists only as the body of the Cloud Run sandbox job, where the Cloud Run
-container *is* the boundary. Nothing should be able to select it in production, and that
-guarantee is enforced here rather than left to documentation.
+around it. The current Cloud Run job also exposes outbound networking and a service-account
+identity to that code. Nothing should be able to select either boundary in production until
+the cloud handoff is credential-free, and that guarantee is enforced here rather than left
+to documentation.
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -28,11 +31,9 @@ def build(**overrides: object) -> Settings:
     return Settings(_env_file=None, **{**PRODUCTION, **overrides})  # type: ignore[arg-type]
 
 
-def test_a_complete_production_configuration_is_accepted() -> None:
-    """The control: everything below must fail for a specific reason, not incidentally."""
-    settings = build()
-    assert settings.environment == "production"
-    assert settings.sandbox == "cloud_run"
+def test_cloud_production_is_fail_closed_until_the_sandbox_is_credential_free() -> None:
+    with pytest.raises(ValidationError, match="production Cloud Run sandbox is disabled"):
+        build()
 
 
 def test_production_rejects_the_host_subprocess_sandbox() -> None:
@@ -83,3 +84,10 @@ def test_development_may_still_select_host_subprocess() -> None:
         sandbox_backend="host_subprocess",
     )
     assert settings.sandbox == "host_subprocess"
+
+
+def test_deployment_script_stops_before_the_first_gcloud_mutation() -> None:
+    script = Path("scripts/deploy.ps1").read_text(encoding="utf-8")
+    guard = script.index("Cloud deployment is intentionally disabled")
+    first_mutation = script.index("gcloud config set project")
+    assert guard < first_mutation

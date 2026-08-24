@@ -1,14 +1,16 @@
 # Verity architecture
 
-Verity runs the same four agents over two interchangeable infrastructures. `VERITY_ENV`
-picks one; nothing else in the codebase branches on it.
+Verity's local infrastructure is implemented and exercised. A cloud adapter set also exists,
+but the 2026-08-24 audit found that its sandbox trust boundary is not production-safe; cloud
+production and deployment are therefore fail-closed. `VERITY_ENV` still selects adapters in
+one place, but the two profiles must not be described as equally proven or equally isolated.
 
 | Seam | Interface | `VERITY_ENV=local` | `VERITY_ENV=cloud` |
 |---|---|---|---|
 | State + trace + claim memory | `JobStore` | `SQLiteJobStore` (`verity.db`) | `FirestoreJobStore` |
 | Intake → processing | `JobQueue` | `AsyncioJobQueue` | `PubSubJobQueue` |
 | Model calls | `ModelClient` | `GeminiAIStudioClient` (API key) | `VertexAIModelClient` |
-| Untrusted execution | `SandboxBackend` | `DockerSandboxBackend` | `CloudRunJobBackend` |
+| Untrusted execution | `SandboxBackend` | `DockerSandboxBackend` | `CloudRunJobBackend` (experimental) |
 
 The interfaces live in [`verity/interfaces.py`](../verity/interfaces.py) and the selection
 lives in [`verity/container.py`](../verity/container.py) — the only module that imports a
@@ -35,18 +37,18 @@ flowchart TD
     S -->|poll status + trace| A
 ```
 
-## Cloud pipeline
+## Cloud pipeline — design target, not deployable production
 
 ```mermaid
 flowchart TD
     U[Browser / API client] -->|HTTPS + X-Verity-Key| A[FastAPI on Cloud Run]
     A -->|claim_key lookup| F[(Firestore jobs + claim_memory)]
     A -->|new job only| P[Pub/Sub: verification-jobs]
-    P -->|authenticated push + verification token| W[Cloud Run intake]
+    P -->|current blueprint: OIDC + URL token| W[Cloud Run intake]
     W -->|launch + immediate ack| PJ[Fresh Cloud Run pipeline job]
     PJ --> PA[1. Parser Agent<br/>Gemini via Vertex AI]
     PA --> EA[2. Environment Agent]
-    EA -->|fresh task per attempt| J[Cloud Run Job sandbox]
+    EA -->|fresh task per attempt| J[Experimental Cloud Run Job sandbox]
     J -->|clone / install / eval| F
     J -->|failure + trace + files| DA[3. Debug Agent<br/>max 3 proposals]
     DA -->|bounded patch bundle| EA
@@ -56,8 +58,10 @@ flowchart TD
     F -->|poll status + trace| A
 ```
 
-The two diagrams differ only in the boxes the table above names. The agent graph, the
-typed contracts in `verity/models.py`, and the three-attempt cap are identical.
+The typed contracts and three-attempt state machine are shared. The trust boundaries are not:
+the current Cloud Run sandbox needs Firestore access while arbitrary repository code in the
+same task can reach the metadata service. A one-time broker and no-role sandbox identity must
+replace that handoff before this diagram describes an approved deployment.
 
 ## The sandbox
 
@@ -79,9 +83,10 @@ reuse between jobs. Patches are applied on the host inside that same temp direct
 is why the mount is read-write rather than read-only.
 
 `docker info` is checked before any verification job starts; a stopped daemon is reported
-as a setup error rather than handed to the Debug Agent as something to patch. Cloud Run
-runs the same container model, which is why `CloudRunJobBackend` is a scheduler swap
-rather than a rewrite.
+as a setup error rather than handed to the Debug Agent as something to patch. A fresh Cloud
+Run task gives filesystem/process isolation between jobs, but it does not reproduce the local
+phase-specific network policy or remove service-account credentials. It is not merely a safe
+scheduler swap.
 
 Isolation is not asserted, it is tested. [`tests/test_docker_sandbox.py`](../tests/test_docker_sandbox.py)
 and [`scripts/validate_docker_isolation.py`](../scripts/validate_docker_isolation.py) start
@@ -93,9 +98,8 @@ must fail.
 
 - Intake accepts HTTPS only, rejects credential-bearing URLs, resolves every redirect
   target, and blocks private, loopback, reserved, and metadata IP addresses.
-- Production refuses to start unless `VERITY_ENV=cloud` is set with Firestore, Pub/Sub, and
-  Cloud Run Job isolation selected, plus both the public API and Pub/Sub verification
-  secrets.
+- Production currently refuses the Cloud Run sandbox even when all cloud settings and secrets
+  are present. `scripts/deploy.ps1` also stops before its first `gcloud` mutation.
 - Evaluation commands never run through a shell and are limited to Python/pip/pytest argv.
 - Model patches are path-confined, size-bounded, exact-match edits. They cannot contain
   path traversal or modify anything outside the cloned repository.
@@ -132,10 +136,24 @@ job id is rejected by `claim_job`, not re-executed.
   is what handles real concurrency.
 - Cloud Trace and Cloud Logging are inactive locally; spans and structured logs go to
   stdout.
+- Clone and install need bridge networking. Untrusted Python build hooks can therefore reach
+  services visible from that network even though evaluation itself has no network.
+
+## Cloud redesign requirements
+
+- Broker sandbox requests/results through single-use capabilities; grant the sandbox no
+  Firestore or other project role.
+- Validate Pub/Sub OIDC at a dedicated worker boundary and remove secrets from URLs.
+- Separate networked acquisition/build from offline evaluation or enforce equivalent egress
+  controls, including metadata/private-address denial.
+- Add job leases/recovery, payload offloading beyond Firestore's document limit, immutable
+  source/image provenance, and a global deadline.
+- Build both images and run cloud-specific isolation/integration tests before removing the
+  production and deployment guards.
 
 ## Telemetry
 
-Cloud Trace spans wrap each agent invocation and Cloud Logging receives structured state
-transitions when running in the cloud. The detailed retry evidence is also stored as trace
-records in the job store, so it remains inspectable in either profile and regardless of log
-retention.
+Telemetry bootstrap exists in both the API and standalone worker: Cloud Trace spans wrap agent
+invocations and Cloud Logging is configured for production. This wiring has not been observed
+on a real cloud service, so it remains implemented but unverified. Detailed retry evidence is
+also stored in the selected job store.

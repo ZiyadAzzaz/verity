@@ -60,6 +60,8 @@ class VerdictStatus(StrEnum):
     VERIFIED = "verified"
     CONTRADICTED = "contradicted"
     INCONCLUSIVE = "inconclusive"
+    #: A value was observed, but material benchmark conditions were not shown equivalent.
+    CONDITIONS_NOT_COMPARABLE = "conditions_not_comparable"
     #: Genuinely attempted the evaluation; it did not reproduce.
     COULD_NOT_VERIFY = "could_not_verify"
     #: The source asserts no headline result worth checking. Nothing was executed.
@@ -92,7 +94,7 @@ class Claim(BaseModel):
     model_config = STRICT
 
     metric: str = Field(min_length=1, max_length=200)
-    value: float
+    value: float = Field(allow_inf_nan=False)
     unit: str = Field(default="", max_length=40)
     dataset: str = Field(min_length=1, max_length=300)
     conditions: list[str] = Field(default_factory=list, max_length=30)
@@ -167,11 +169,14 @@ class EnvironmentResult(BaseModel):
     phase: Literal["clone", "install", "evaluate", "metric", "infrastructure"]
     stdout: str = Field(default="", max_length=100_000)
     stderr: str = Field(default="", max_length=100_000)
-    actual_value: float | None = None
+    actual_value: float | None = Field(default=None, allow_inf_nan=False)
     metric_evidence: str | None = Field(default=None, max_length=2000)
     diagnostic_files: dict[str, str] = Field(default_factory=dict)
     duration_seconds: float = Field(ge=0)
     sandbox_execution: str | None = None
+    #: The immutable commit actually checked out by the sandbox. A branch, tag, or HEAD
+    #: may select the first run, but every repair attempt is pinned to this full object id.
+    repository_commit: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
 
     @property
     def error_text(self) -> str:
@@ -197,11 +202,48 @@ _BLOCKED_NETWORK_MARKERS = (
     "urlerror",
     "urlopen error",
     "max retries exceeded with url",
-    "ssl",
     "certificate verify failed",
     "proxyerror",
-    "read timed out",
 )
+
+
+#: Metrics whose values materially depend on hardware, runtime, or provider conditions.
+#: Verity does not yet capture enough observed environment provenance to compare these
+#: measurements honestly, even when the evaluation emits a number.
+_CONDITION_SENSITIVE_METRIC_MARKERS = (
+    "latency",
+    "throughput",
+    "runtime",
+    "execution time",
+    "training time",
+    "inference time",
+    "overhead",
+    "speedup",
+    "frames per second",
+    "fps",
+    "tokens/s",
+    "tokens per second",
+    "samples/s",
+    "requests/s",
+    "flops",
+    "memory usage",
+    "power consumption",
+    "energy consumption",
+    "cost per",
+)
+
+
+def conditions_require_comparison_provenance(metric: str) -> bool:
+    """Return whether a scalar alone cannot establish this metric's claim.
+
+    Accuracy-like metrics can be compared numerically once the claimed evaluation has been
+    run. Timing, throughput, resource, and cost metrics additionally require proof that the
+    material execution conditions match. ``EnvironmentResult`` does not capture that proof
+    yet, so treating a different laptop timing as a contradiction would overstate evidence.
+    """
+
+    normalized = " ".join(metric.lower().replace("_", " ").split())
+    return any(marker in normalized for marker in _CONDITION_SENSITIVE_METRIC_MARKERS)
 
 
 def looks_environment_incompatible(result: EnvironmentResult) -> bool:
@@ -288,7 +330,7 @@ class Verdict(BaseModel):
     status: VerdictStatus
     confidence: Confidence
     claim: Claim
-    actual_value: float | None = None
+    actual_value: float | None = Field(default=None, allow_inf_nan=False)
     summary: str = Field(min_length=1, max_length=5000)
     fixes_applied: list[str] = Field(default_factory=list, max_length=30)
     evidence: list[str] = Field(default_factory=list, max_length=100)

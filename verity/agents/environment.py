@@ -7,8 +7,9 @@ phase inside a throwaway container whose only writable mount is one fresh temp d
 Three backends implement :class:`verity.interfaces.SandboxBackend`:
 
 * :class:`DockerSandboxBackend` — local default. ``docker run --rm`` per phase.
-* :class:`CloudRunJobBackend` — one fresh Cloud Run Job task per attempt. Cloud Run runs
-  containers, so this is the same execution model with a different scheduler.
+* :class:`CloudRunJobBackend` — experimental Cloud Run Job scheduler. It is not equivalent
+  to the local Docker boundary while the task has network access and a Google service
+  identity, so production configuration currently refuses it.
 * :class:`LocalSandboxBackend` — raw host subprocesses. **Not an isolation boundary.** It
   exists because it is what runs *inside* the sandbox container image, where the container
   is the boundary; selecting it as the top-level backend requires an explicit opt-in.
@@ -17,7 +18,9 @@ Three backends implement :class:`verity.interfaces.SandboxBackend`:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import math
 import os
 import re
 import shutil
@@ -49,12 +52,22 @@ DEFAULT_SANDBOX_IMAGE = "verity-sandbox-runner:1"
 CONTAINER_WORKSPACE = "/work"
 CONTAINER_REPO = "/work/repo"
 CONTAINER_VENV_PYTHON = "/work/venv/bin/python"
+FULL_GIT_COMMIT = re.compile(r"^[0-9a-f]{40}$")
+
+
+def _resolved_repository_commit(output: str) -> str | None:
+    """Return a full Git object id, never a branch, tag, abbreviation, or noisy line."""
+
+    candidate = output.strip()
+    return candidate if FULL_GIT_COMMIT.fullmatch(candidate) else None
 
 
 class SandboxStore(Protocol):
     async def create_sandbox_run(self, run: SandboxRun) -> None: ...
 
     async def get_sandbox_run(self, run_id: str) -> SandboxRun | None: ...
+
+    async def complete_sandbox_run(self, run_id: str, result: EnvironmentResult) -> None: ...
 
 
 def apply_patch_operations(repo: Path, patches: list[PatchOperation]) -> None:
@@ -128,27 +141,52 @@ def _run_process(
 def _extract_metric(
     output: str, metric: str, pattern: str | None
 ) -> tuple[float | None, str | None]:
-    try:
-        matcher = (
-            re.search(pattern, output, flags=re.IGNORECASE | re.MULTILINE) if pattern else None
-        )
-    except re.error:
-        matcher = None
-    if matcher is None:
+    matcher_start: int | None = None
+    matcher_end: int | None = None
+    value: float | None = None
+    if pattern:
+        try:
+            completed = subprocess.run(
+                [sys.executable, "-m", "verity.metric_matcher"],
+                input=json.dumps({"pattern": pattern, "output": output}),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=2,
+                check=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            matched = json.loads(completed.stdout) if completed.returncode == 0 else None
+            if isinstance(matched, dict):
+                value = float(matched["value"])
+                matcher_start = int(matched["start"])
+                matcher_end = int(matched["end"])
+        except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
+            # Invalid, ambiguous, or pathological model patterns do not get to hold the
+            # orchestrator hostage. Fall through to the deterministic metric-name matcher.
+            pass
+    if value is None:
         flexible_metric = re.sub(r"\\\s+", r"\\s+", re.escape(metric))
-        matcher = re.search(
-            rf"{flexible_metric}[^\n\d+-]{{0,80}}([+-]?(?:\d+(?:\.\d*)?|\.\d+))",
-            output,
-            flags=re.IGNORECASE,
+        matches = list(
+            re.finditer(
+                rf"{flexible_metric}[^\n\d+-]{{0,80}}([+-]?(?:\d+(?:\.\d*)?|\.\d+))",
+                output,
+                flags=re.IGNORECASE,
+            )
         )
-    if matcher is None:
+        if not matches:
+            return None, None
+        matcher = matches[-1]
+        try:
+            value = float(matcher.group(1).replace(",", ""))
+        except ValueError:
+            return None, None
+        matcher_start, matcher_end = matcher.start(), matcher.end()
+    if not math.isfinite(value):
         return None, None
-    value_text = matcher.groupdict().get("value") or matcher.group(1)
-    try:
-        value = float(value_text.replace(",", ""))
-    except ValueError:
-        return None, None
-    evidence = output[max(0, matcher.start() - 150) : matcher.end() + 150]
+    assert matcher_start is not None and matcher_end is not None
+    evidence = output[max(0, matcher_start - 150) : matcher_end + 150]
     return value, evidence.strip()
 
 
@@ -423,6 +461,85 @@ class DockerSandboxBackend(SandboxBackend):
 
     # --- SandboxBackend ------------------------------------------------------
 
+    def _clone_repository(
+        self,
+        workspace: Path,
+        repo_url: str,
+        revision: str | None,
+    ) -> tuple[int, str, str]:
+        """Clone a branch/tag normally, or fetch a full commit exactly and detached."""
+
+        if revision is None or FULL_GIT_COMMIT.fullmatch(revision) is None:
+            clone = ["git", "clone", "--depth", "1"]
+            if revision:
+                clone += ["--branch", revision]
+            clone += [repo_url, CONTAINER_REPO]
+            return self._docker_run(
+                workspace,
+                clone,
+                network="bridge",
+                workdir=CONTAINER_WORKSPACE,
+                timeout=min(self._timeout, 600),
+            )
+
+        commands = [
+            (["git", "init", CONTAINER_REPO], "none", CONTAINER_WORKSPACE),
+            (
+                [
+                    "git",
+                    "-c",
+                    f"safe.directory={CONTAINER_REPO}",
+                    "remote",
+                    "add",
+                    "origin",
+                    repo_url,
+                ],
+                "none",
+                CONTAINER_REPO,
+            ),
+            (
+                [
+                    "git",
+                    "-c",
+                    f"safe.directory={CONTAINER_REPO}",
+                    "fetch",
+                    "--depth",
+                    "1",
+                    "origin",
+                    revision,
+                ],
+                "bridge",
+                CONTAINER_REPO,
+            ),
+            (
+                [
+                    "git",
+                    "-c",
+                    f"safe.directory={CONTAINER_REPO}",
+                    "checkout",
+                    "--detach",
+                    "FETCH_HEAD",
+                ],
+                "none",
+                CONTAINER_REPO,
+            ),
+        ]
+        stdout = ""
+        stderr = ""
+        for command, network, workdir in commands:
+            code, out, err = self._docker_run(
+                workspace,
+                command,
+                network=network,
+                workdir=workdir,
+                timeout=min(self._timeout, 600),
+            )
+            stdout = (stdout + "\n" + out)[-self._max_chars :]
+            stderr = (stderr + "\n" + err)[-self._max_chars :]
+            if code:
+                return code, stdout, stderr
+        return 0, stdout, stderr
+
     async def run(
         self,
         job_id: str,
@@ -470,17 +587,11 @@ class DockerSandboxBackend(SandboxBackend):
             repo.mkdir()
 
             # 1. clone — the only phase allowed to reach the repository host.
-            clone = ["git", "clone", "--depth", "1"]
-            if execution.revision:
-                clone += ["--branch", execution.revision]
-            clone += [repo_url, CONTAINER_REPO]
             try:
-                code, stdout, stderr = self._docker_run(
+                code, stdout, stderr = self._clone_repository(
                     workspace,
-                    clone,
-                    network="bridge",
-                    workdir=CONTAINER_WORKSPACE,
-                    timeout=min(self._timeout, 600),
+                    repo_url,
+                    execution.revision,
                 )
             except (OSError, subprocess.TimeoutExpired) as exc:
                 return EnvironmentResult(
@@ -499,6 +610,43 @@ class DockerSandboxBackend(SandboxBackend):
                     duration_seconds=elapsed(),
                 )
 
+            try:
+                commit_code, commit_stdout, commit_stderr = self._docker_run(
+                    workspace,
+                    [
+                        "git",
+                        "-c",
+                        f"safe.directory={CONTAINER_REPO}",
+                        "rev-parse",
+                        "--verify",
+                        "HEAD^{commit}",
+                    ],
+                    network="none",
+                    workdir=CONTAINER_REPO,
+                    timeout=min(self._timeout, 120),
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                commit_code, commit_stdout, commit_stderr = (
+                    -1,
+                    "",
+                    f"{type(exc).__name__}: {exc}",
+                )
+            repository_commit = _resolved_repository_commit(commit_stdout)
+            if commit_code or repository_commit is None:
+                detail = commit_stderr or (
+                    "git rev-parse did not return one full 40-character commit id"
+                )
+                return EnvironmentResult(
+                    succeeded=False,
+                    exit_code=commit_code or None,
+                    phase="infrastructure",
+                    stdout=stdout,
+                    stderr=(stderr + "\nRepository revision capture failed: " + detail)[
+                        -self._max_chars :
+                    ],
+                    duration_seconds=elapsed(),
+                )
+
             # 2. patch — on the host, inside the mounted workspace only.
             try:
                 apply_patch_operations(repo, patches)
@@ -508,6 +656,7 @@ class DockerSandboxBackend(SandboxBackend):
                     phase="install",
                     stderr=f"Patch application failed: {exc}",
                     duration_seconds=elapsed(),
+                    repository_commit=repository_commit,
                 )
 
             host_workdir = safe_repo_path(repo, execution.working_directory)
@@ -544,6 +693,7 @@ class DockerSandboxBackend(SandboxBackend):
                     stdout=combined_stdout,
                     stderr=combined_stderr,
                     duration_seconds=elapsed(),
+                    repository_commit=repository_commit,
                 )
 
             # 4. install — network on, but only the declared commands run.
@@ -569,6 +719,7 @@ class DockerSandboxBackend(SandboxBackend):
                         stderr=combined_stderr,
                         diagnostic_files=_diagnostic_files(repo, err),
                         duration_seconds=elapsed(),
+                        repository_commit=repository_commit,
                     )
 
             # 5. evaluate — no network at all. A benchmark that needs to phone home
@@ -601,6 +752,7 @@ class DockerSandboxBackend(SandboxBackend):
                 diagnostic_files=_diagnostic_files(repo, err),
                 duration_seconds=elapsed(),
                 sandbox_execution=f"docker:{self._image}",
+                repository_commit=repository_commit,
             )
 
 
@@ -629,6 +781,46 @@ class LocalSandboxBackend(SandboxBackend):
         self._timeout = timeout_seconds
         self._max_chars = max_output_chars
         self._allowed_repo_hosts = allowed_repo_hosts
+
+    def _clone_repository(
+        self,
+        root: Path,
+        repo: Path,
+        repo_url: str,
+        revision: str | None,
+    ) -> tuple[int, str, str]:
+        if revision is None or FULL_GIT_COMMIT.fullmatch(revision) is None:
+            clone = ["git", "clone", "--depth", "1"]
+            if revision:
+                clone += ["--branch", revision]
+            clone += [repo_url, str(repo)]
+            return _run_process(
+                clone,
+                cwd=root,
+                timeout=min(self._timeout, 300),
+                max_chars=self._max_chars,
+            )
+
+        commands = [
+            (["git", "init", str(repo)], root),
+            (["git", "remote", "add", "origin", repo_url], repo),
+            (["git", "fetch", "--depth", "1", "origin", revision], repo),
+            (["git", "checkout", "--detach", "FETCH_HEAD"], repo),
+        ]
+        stdout = ""
+        stderr = ""
+        for command, cwd in commands:
+            code, out, err = _run_process(
+                command,
+                cwd=cwd,
+                timeout=min(self._timeout, 300),
+                max_chars=self._max_chars,
+            )
+            stdout = (stdout + "\n" + out)[-self._max_chars :]
+            stderr = (stderr + "\n" + err)[-self._max_chars :]
+            if code:
+                return code, stdout, stderr
+        return 0, stdout, stderr
 
     async def run(
         self,
@@ -669,16 +861,12 @@ class LocalSandboxBackend(SandboxBackend):
         with tempfile.TemporaryDirectory(prefix="verity-") as temp:
             root = Path(temp)
             repo = root / "repo"
-            clone = ["git", "clone", "--depth", "1"]
-            if execution.revision:
-                clone.extend(["--branch", execution.revision])
-            clone.extend([repo_url, str(repo)])
             try:
-                code, stdout, stderr = _run_process(
-                    clone,
-                    cwd=root,
-                    timeout=min(self._timeout, 300),
-                    max_chars=self._max_chars,
+                code, stdout, stderr = self._clone_repository(
+                    root,
+                    repo,
+                    repo_url,
+                    execution.revision,
                 )
             except (OSError, subprocess.TimeoutExpired) as exc:
                 return EnvironmentResult(
@@ -697,6 +885,30 @@ class LocalSandboxBackend(SandboxBackend):
                     duration_seconds=time.monotonic() - started,
                 )
             try:
+                commit_code, commit_stdout, commit_stderr = _run_process(
+                    ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+                    cwd=repo,
+                    timeout=min(self._timeout, 120),
+                    max_chars=self._max_chars,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                commit_code, commit_stdout, commit_stderr = -1, "", str(exc)
+            repository_commit = _resolved_repository_commit(commit_stdout)
+            if commit_code or repository_commit is None:
+                detail = commit_stderr or (
+                    "git rev-parse did not return one full 40-character commit id"
+                )
+                return EnvironmentResult(
+                    succeeded=False,
+                    exit_code=commit_code or None,
+                    phase="infrastructure",
+                    stdout=stdout,
+                    stderr=(stderr + "\nRepository revision capture failed: " + detail)[
+                        -self._max_chars :
+                    ],
+                    duration_seconds=time.monotonic() - started,
+                )
+            try:
                 apply_patch_operations(repo, patches)
             except (OSError, ValueError) as exc:
                 return EnvironmentResult(
@@ -704,6 +916,7 @@ class LocalSandboxBackend(SandboxBackend):
                     phase="install",
                     stderr=f"Patch application failed: {exc}",
                     duration_seconds=time.monotonic() - started,
+                    repository_commit=repository_commit,
                 )
 
             workdir = safe_repo_path(repo, execution.working_directory)
@@ -722,6 +935,7 @@ class LocalSandboxBackend(SandboxBackend):
                     stdout=venv_stdout,
                     stderr=venv_stderr,
                     duration_seconds=time.monotonic() - started,
+                    repository_commit=repository_commit,
                 )
             python = _venv_python(venv)
             install_commands = execution.install_commands or _default_install_commands(workdir)
@@ -760,6 +974,7 @@ class LocalSandboxBackend(SandboxBackend):
                         stderr=combined_stderr,
                         diagnostic_files=_diagnostic_files(repo, err),
                         duration_seconds=time.monotonic() - started,
+                        repository_commit=repository_commit,
                     )
 
             evaluation = command_override or execution.evaluation_command
@@ -791,6 +1006,7 @@ class LocalSandboxBackend(SandboxBackend):
                 metric_evidence=evidence,
                 diagnostic_files=_diagnostic_files(repo, err),
                 duration_seconds=time.monotonic() - started,
+                repository_commit=repository_commit,
             )
 
 
@@ -800,10 +1016,13 @@ class LocalSandboxBackend(SandboxBackend):
 
 
 class CloudRunJobBackend(SandboxBackend):
-    """Launch one fresh Cloud Run Job task per attempt and read its stored result.
+    """Launch an experimental Cloud Run Job task and read its stored result.
 
-    The forward path from :class:`DockerSandboxBackend`: Cloud Run runs the same sandbox
-    container, so what changes is who schedules it, not how the code is isolated.
+    This adapter is useful for development of the cloud handoff, but is intentionally
+    blocked by production configuration. The current sandbox task needs Firestore access
+    to read and write its request while arbitrary repository code in the same task can
+    reach the metadata service. A credential-free broker must replace that design before
+    this can be treated as a production isolation boundary.
     """
 
     def __init__(
@@ -828,41 +1047,61 @@ class CloudRunJobBackend(SandboxBackend):
         patches: list[PatchOperation],
         command_override: list[str] | None,
     ) -> EnvironmentResult:
-        from google.cloud import run_v2
-
+        started = time.monotonic()
         run_id = uuid.uuid4().hex
-        sandbox_request = SandboxRequest(
-            run_id=run_id,
-            job_id=job_id,
-            parsed_claim=parsed_claim,
-            patches=patches,
-            command_override=command_override,
-            timeout_seconds=self._timeout,
-        )
-        await self._store.create_sandbox_run(SandboxRun(request=sandbox_request))
-        client = run_v2.JobsClient()
-        name = client.job_path(self._project, self._location, self._job_name)
-        override = run_v2.RunJobRequest.Overrides(
-            container_overrides=[
-                run_v2.RunJobRequest.Overrides.ContainerOverride(
-                    env=[run_v2.EnvVar(name="VERITY_SANDBOX_RUN_ID", value=run_id)]
-                )
-            ],
-            task_count=1,
-            timeout={"seconds": self._timeout},
-        )
-        operation = await asyncio.to_thread(
-            client.run_job,
-            request=run_v2.RunJobRequest(name=name, overrides=override),
-        )
-        execution = await asyncio.to_thread(operation.result, timeout=self._timeout + 120)
-        completed = await self._store.get_sandbox_run(run_id)
+        request_persisted = False
+        try:
+            from google.cloud import run_v2
+
+            sandbox_request = SandboxRequest(
+                run_id=run_id,
+                job_id=job_id,
+                parsed_claim=parsed_claim,
+                patches=patches,
+                command_override=command_override,
+                timeout_seconds=self._timeout,
+            )
+            await self._store.create_sandbox_run(SandboxRun(request=sandbox_request))
+            request_persisted = True
+            client = run_v2.JobsClient()
+            name = client.job_path(self._project, self._location, self._job_name)
+            override = run_v2.RunJobRequest.Overrides(
+                container_overrides=[
+                    run_v2.RunJobRequest.Overrides.ContainerOverride(
+                        env=[run_v2.EnvVar(name="VERITY_SANDBOX_RUN_ID", value=run_id)]
+                    )
+                ],
+                task_count=1,
+                timeout={"seconds": self._timeout},
+            )
+            operation = await asyncio.to_thread(
+                client.run_job,
+                request=run_v2.RunJobRequest(name=name, overrides=override),
+            )
+            execution = await asyncio.to_thread(operation.result, timeout=self._timeout + 120)
+            completed = await self._store.get_sandbox_run(run_id)
+        except Exception as exc:
+            failure = EnvironmentResult(
+                succeeded=False,
+                phase="infrastructure",
+                stderr=f"Cloud Run sandbox failed: {type(exc).__name__}: {exc}"[:100_000],
+                duration_seconds=time.monotonic() - started,
+            )
+            if request_persisted:
+                try:
+                    await self._store.complete_sandbox_run(run_id, failure)
+                except Exception:
+                    logger.exception(
+                        "Could not persist Cloud Run sandbox control-plane failure",
+                        extra={"run_id": run_id},
+                    )
+            return failure
         if completed is None or completed.result is None:
             return EnvironmentResult(
                 succeeded=False,
                 phase="infrastructure",
                 stderr="Cloud Run Job completed without a sandbox result record.",
-                duration_seconds=0,
+                duration_seconds=time.monotonic() - started,
                 sandbox_execution=getattr(execution, "name", None),
             )
         return completed.result.model_copy(

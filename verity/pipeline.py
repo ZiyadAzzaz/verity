@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from pydantic import ValidationError
@@ -14,6 +15,7 @@ from verity.models import (
     ClaimSignificance,
     Confidence,
     DebugProposal,
+    EnvironmentResult,
     JobStatus,
     ParsedClaim,
     PatchOperation,
@@ -25,6 +27,42 @@ from verity.models import (
 from verity.telemetry import agent_span
 
 logger = logging.getLogger(__name__)
+FULL_GIT_COMMIT = re.compile(r"^[0-9a-f]{40}$")
+
+
+def _with_pinned_revision(parsed: ParsedClaim, commit: str | None) -> ParsedClaim:
+    if commit is None or parsed.execution.revision == commit:
+        return parsed
+    execution = parsed.execution.model_copy(update={"revision": commit})
+    return parsed.model_copy(update={"execution": execution})
+
+
+def _enforce_repository_revision(
+    result: EnvironmentResult,
+    expected_commit: str | None,
+) -> EnvironmentResult:
+    """Turn post-clone revision drift into a platform failure, never a claim result."""
+
+    if expected_commit is None:
+        return result
+    if result.repository_commit == expected_commit:
+        return result
+    observed = result.repository_commit or "missing"
+    integrity_error = (
+        f"Repository revision integrity failure: expected {expected_commit}, observed {observed}."
+    )
+    payload = result.model_dump(mode="python")
+    payload.update(
+        {
+            "succeeded": False,
+            "phase": "infrastructure",
+            "actual_value": None,
+            "metric_evidence": None,
+            # Keep the integrity diagnosis at the tail, where failure_excerpt reads from.
+            "stderr": (result.stderr[-90_000:] + "\n" + integrity_error)[-100_000:],
+        }
+    )
+    return EnvironmentResult.model_validate(payload)
 
 
 class VerificationPipeline:
@@ -91,14 +129,34 @@ class VerificationPipeline:
 
             await self._store.update_job(job_id, status=JobStatus.RUNNING)
             await self._trace(job_id, "environment", "initial_run_started")
+            requested_revision = parsed.execution.revision
+            pinned_commit = (
+                requested_revision
+                if requested_revision is not None and FULL_GIT_COMMIT.fullmatch(requested_revision)
+                else None
+            )
             with agent_span("environment", job_id):
                 result = await self._environment.run(job_id, parsed, [])
+            result = _enforce_repository_revision(result, pinned_commit)
             await self._trace(
                 job_id,
                 "environment",
                 "initial_run_finished",
                 result.model_dump(mode="json"),
             )
+            if result.phase == "infrastructure":
+                await self._fail_infrastructure(job_id, result)
+                return
+            if pinned_commit is None and result.repository_commit is not None:
+                pinned_commit = result.repository_commit
+                parsed = _with_pinned_revision(parsed, pinned_commit)
+                await self._store.update_job(job_id, parsed_claim=parsed)
+                await self._trace(
+                    job_id,
+                    "environment",
+                    "repository_revision_pinned",
+                    {"repository_commit": pinned_commit},
+                )
 
             patches: list[PatchOperation] = []
             command_override: list[str] | None = None
@@ -148,15 +206,28 @@ class VerificationPipeline:
                         )
                         continue
                     patches.extend(proposal.operations)
+                    proposed_patch_count = len(proposal.operations)
+                    previous_command_override = command_override
                     if proposal.replacement_command is not None:
                         command_override = proposal.replacement_command
                     await self._store.update_job(job_id, status=JobStatus.RUNNING)
                     with agent_span("environment", job_id, attempt=attempt_number):
                         outcome = await self._environment.run(
                             job_id,
-                            parsed,
+                            _with_pinned_revision(parsed, pinned_commit),
                             patches,
                             command_override,
+                        )
+                    outcome = _enforce_repository_revision(outcome, pinned_commit)
+                    if pinned_commit is None and outcome.repository_commit is not None:
+                        pinned_commit = outcome.repository_commit
+                        parsed = _with_pinned_revision(parsed, pinned_commit)
+                        await self._store.update_job(job_id, parsed_claim=parsed)
+                        await self._trace(
+                            job_id,
+                            "environment",
+                            "repository_revision_pinned",
+                            {"repository_commit": pinned_commit},
                         )
                     attempt = AttemptLog(
                         attempt=attempt_number,
@@ -172,8 +243,24 @@ class VerificationPipeline:
                         attempt.model_dump(mode="json"),
                     )
                     result = outcome
+                    if (
+                        proposed_patch_count
+                        and not outcome.succeeded
+                        and outcome.stderr.startswith("Patch application failed:")
+                    ):
+                        # Every attempt reclones from scratch. A patch bundle that could not
+                        # even be applied must not poison all later attempts by remaining in
+                        # the cumulative list.
+                        del patches[-proposed_patch_count:]
+                        command_override = previous_command_override
                     if result.succeeded:
                         break
+                    if result.phase == "infrastructure":
+                        break
+
+            if result.phase == "infrastructure":
+                await self._fail_infrastructure(job_id, result)
+                return
 
             # The evaluation phase has no network by design. A repository that fetches its
             # data at evaluation time therefore cannot succeed whether its claim is true or
@@ -212,15 +299,7 @@ class VerificationPipeline:
                 "verdict_completed",
                 verdict.model_dump(mode="json"),
             )
-            if verdict.artifact_error:
-                await self._store.update_job(
-                    job_id,
-                    verdict=verdict,
-                    status=JobStatus.FAILED,
-                    error=verdict.artifact_error,
-                )
-            else:
-                await self._store.complete_job(job_id, verdict)
+            await self._persist_verdict(job_id, verdict)
         except Exception as exc:
             logger.exception("Verification pipeline failed", extra={"job_id": job_id})
             await self._trace(
@@ -264,6 +343,7 @@ class VerificationPipeline:
             fixes_applied=[
                 f"{operation.kind} {operation.path}"
                 for attempt in recorded
+                if not attempt.outcome.stderr.startswith("Patch application failed:")
                 for operation in attempt.proposal.operations
             ],
             attempts=recorded,
@@ -279,7 +359,32 @@ class VerificationPipeline:
             "verdict_completed",
             verdict.model_dump(mode="json"),
         )
+        await self._persist_verdict(job_id, verdict)
+
+    async def _persist_verdict(self, job_id: str, verdict: Verdict) -> None:
+        """Apply one artifact policy to normal and short-circuit verdicts alike."""
+
+        if verdict.artifact_error:
+            await self._store.update_job(
+                job_id,
+                verdict=verdict,
+                status=JobStatus.FAILED,
+                error=verdict.artifact_error,
+            )
+            return
         await self._store.complete_job(job_id, verdict)
+
+    async def _fail_infrastructure(self, job_id: str, result: EnvironmentResult) -> None:
+        """Keep platform failures out of claim-verdict taxonomy and debug retries."""
+
+        error = f"Sandbox infrastructure failure: {failure_excerpt(result)}"[:5000]
+        await self._trace(
+            job_id,
+            "orchestrator",
+            "infrastructure_failed",
+            {"phase": result.phase, "error": error},
+        )
+        await self._store.update_job(job_id, status=JobStatus.FAILED, error=error)
 
     async def _trace(
         self,

@@ -1,5 +1,5 @@
-> **Superseded by [HANDOVER.md](HANDOVER.md).** That document is authoritative; this one
-> is kept for history. Two claims below were later found to be wrong —
+> **Historical snapshot.** Superseded by [STATE.md](STATE.md) and
+> [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md). Two claims below were later found to be wrong —
 > conda *is* installed on this machine, and the live Gemini path has since been verified.
 
 # Verity — Local-First Pivot: Status & Handoff

@@ -12,6 +12,7 @@ Every Docker call is hard-timeboxed, so this script cannot hang the way a bare
 
 from __future__ import annotations
 
+import argparse
 import shutil
 import subprocess
 import sys
@@ -70,15 +71,18 @@ def check_dependencies() -> bool:
     return True
 
 
-def check_key() -> bool:
+def check_key(*, required: bool = True) -> bool:
     """Report only whether a key exists and its length. Never the value."""
     from verity.config import Settings
 
     settings = Settings()
     if not settings.gemini_api_key:
-        print(f"{NO} GEMINI_API_KEY is empty")
-        print(f"         Add it to {ROOT / '.env'} - free key: https://aistudio.google.com/")
-        return False
+        if required:
+            print(f"{NO} GEMINI_API_KEY is empty")
+            print(f"         Add it to {ROOT / '.env'} - free key: https://aistudio.google.com/")
+            return False
+        print(f"{WARN} GEMINI_API_KEY is empty - cached demo only")
+        return True
     length = len(settings.gemini_api_key.get_secret_value())
     print(f"{OK} GEMINI_API_KEY is set ({length} characters)")
     print(
@@ -113,15 +117,16 @@ def check_docker() -> bool:
     return True
 
 
-def main() -> int:
+def main(*, allow_missing_key: bool = False) -> int:
     print("\nVerity local setup check\n" + "-" * 60)
     environment = check_python() and check_dependencies()
-    key = check_key() if environment else False
+    key = check_key(required=not allow_missing_key) if environment else False
     docker = check_docker() if environment else False
     print("-" * 60)
 
     if environment and key and docker:
-        print("READY - everything the local pipeline needs is in place.\n")
+        scope = "cached demo" if allow_missing_key else "local pipeline"
+        print(f"READY - everything the {scope} needs is in place.\n")
         return 0
 
     print("NOT READY. Outstanding:")
@@ -131,9 +136,16 @@ def main() -> int:
         print("  - GEMINI_API_KEY in .env")
     if environment and not docker:
         print("  - a responding Docker daemon")
-    print("\nSee docs/HANDOVER.md for setup details.\n")
+    print("\nSee docs/STATE.md and docs/LOCAL-DEMO.md for setup details.\n")
     return 1
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--allow-missing-key",
+        action="store_true",
+        help="treat a missing Gemini key as acceptable for the shipped cached demo",
+    )
+    arguments = parser.parse_args()
+    raise SystemExit(main(allow_missing_key=arguments.allow_missing_key))

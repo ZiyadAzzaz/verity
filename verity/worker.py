@@ -7,10 +7,20 @@ import asyncio
 
 from verity.config import get_settings
 from verity.container import build_container
+from verity.telemetry import configure_telemetry
 
 
 async def _run(job_id: str) -> None:
-    await build_container(get_settings()).pipeline.process(job_id)
+    settings = get_settings()
+    configure_telemetry(
+        settings.google_cloud_project,
+        cloud=settings.environment == "production",
+    )
+    container = build_container(settings)
+    try:
+        await container.pipeline.process(job_id)
+    finally:
+        await container.shutdown()
 
 
 def main() -> None:

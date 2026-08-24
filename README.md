@@ -5,9 +5,10 @@ not summarize a paper or README and call that verification: it extracts a typed 
 claim, runs the associated repository in a fresh sandbox, makes at most three transparent
 repair attempts, and files an evidence-backed verdict as a GitHub Issue.
 
-The four roles are declared as Google ADK agents in `app/agent.py`; the state machine in
-`verity/pipeline.py` adds the durable checkpoints and hard retry boundary needed for safe
-background execution. The configured model is `gemini-3.5-flash`.
+The durable runtime is the four-role state machine in `verity/pipeline.py`. Its Parser and
+Debug model calls use typed Google ADK `LlmAgent` instances; `app/agent.py` is a declarative
+view of the same roles, not a second executable pipeline. The configured model is
+`gemini-3.5-flash`.
 
 Verity runs on either of two infrastructures, chosen by a single setting:
 
@@ -16,7 +17,7 @@ Verity runs on either of two infrastructures, chosen by a single setting:
 | State, trace, claim memory | SQLite (`verity.db`) | Firestore |
 | Intake to processing | `asyncio.Queue` | Pub/Sub |
 | Model calls | Gemini via AI Studio API key | Gemini via Vertex AI |
-| Untrusted execution | Docker (`docker run --rm`) | Cloud Run Jobs |
+| Untrusted execution | Docker (`docker run --rm`) | Cloud Run Jobs (experimental, blocked in production) |
 
 **The local profile needs no Google Cloud project, no billing account, and no card.** The
 agents depend only on the interfaces in `verity/interfaces.py`; `verity/container.py` is
@@ -35,22 +36,24 @@ number would otherwise sit. The Debug Agent's own reasoning, quoted from that Is
 > under the security and honesty rules. Therefore, no defensible fix can be proposed."*
 
 **Run it yourself in ten minutes, without an API key:
-[docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md).** Two claims ship pre-verified in the repository, so
-a genuine verdict returns instantly without a single model call.
+[docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md).** Five claims ship with real cached verdicts, so a
+genuine result returns instantly without a single model call.
 
 ## Documentation
 
 | Document | Contents |
 |---|---|
 | [docs/STATE.md](docs/STATE.md) | **Start here** — full state, what is missing, next steps |
-| [docs/REVIEW.md](docs/REVIEW.md) | Honest assessment and recommendations |
-| [docs/COMPLETE.md](docs/COMPLETE.md) | Everything in one document — built, tested, results, gaps |
+| [docs/AUDIT-2026-08-24.md](docs/AUDIT-2026-08-24.md) | Deep code, runtime, security, deployment, and artifact audit |
+| [docs/NEXT-IMPLEMENTATION.md](docs/NEXT-IMPLEMENTATION.md) | Exact evidence, recovery, secure-cloud, and staging gates |
+| [docs/REVIEW.md](docs/REVIEW.md) | Historical 2026-08-23 review |
+| [docs/COMPLETE.md](docs/COMPLETE.md) | Historical 2026-08-23 project record |
 | [docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md) | Clone and run it yourself, no API key |
 | [docs/architecture.md](docs/architecture.md) | Both profiles, trust boundaries, data model |
 | `verity-architecture.html` | The presentation diagram — open in a browser |
-| [docs/PRE-SUBMISSION-AUDIT.md](docs/PRE-SUBMISSION-AUDIT.md) | Every claim here re-checked, **including what is not verified** |
-| [docs/PROJECT-ANALYSIS.md](docs/PROJECT-ANALYSIS.md) | What was tested, how, and the results |
-| [docs/HANDOVER.md](docs/HANDOVER.md) | Current status and every path that matters |
+| [docs/PRE-SUBMISSION-AUDIT.md](docs/PRE-SUBMISSION-AUDIT.md) | Historical 2026-08-23 audit |
+| [docs/PROJECT-ANALYSIS.md](docs/PROJECT-ANALYSIS.md) | Historical analysis |
+| [docs/HANDOVER.md](docs/HANDOVER.md) | Historical handover |
 
 ## What a result means
 
@@ -60,6 +63,8 @@ mode these are designed to prevent.
 - `verified`: a captured metric is within the explicit 2% comparison tolerance.
 - `contradicted`: a captured metric is outside that tolerance.
 - `inconclusive`: evaluation exited successfully but no attributable metric was captured.
+- `conditions_not_comparable`: a value was observed, but Verity did not establish equivalent
+  hardware/runtime conditions, so it asserts neither verification nor contradiction.
 - `could_not_verify`: Verity genuinely attempted the evaluation and it did not reproduce.
 - `no_verifiable_claim_found`: the source asserts no headline result worth checking — only
   incidental statistics like a row or feature count. **Nothing was executed.**
@@ -88,7 +93,15 @@ Stated plainly, because a verification tool that oversells itself is self-defeat
 - **The parser may extract a different claim on different runs** when a source contains
   several. Each extraction is grounded in a verbatim quote, but they are not identical
   between runs.
-- **The cloud profile is implemented but unverified** against live Google Cloud.
+- **The cloud profile is experimental and production is fail-closed.** The current Cloud Run
+  sandbox combines outbound network access, untrusted code, and a project identity. Until the
+  handoff is credential-free and cloud isolation is tested, `Settings` rejects production and
+  `scripts/deploy.ps1` stops before changing any resource.
+- **Environment provenance is incomplete.** Timing/throughput/resource metrics now return
+  `conditions_not_comparable`, but dataset, checkpoint, revision, hardware, and dependency
+  equivalence are not yet recorded strongly enough for universal reproducibility claims.
+- **Install-time code has network access.** Evaluation is offline, but Python package builds
+  run during the networked install phase. Do not treat that phase as safe against LAN probing.
 
 ## Local setup (Python 3.11, no Google Cloud)
 
@@ -188,48 +201,20 @@ $env:VERITY_API_KEY = '<the deployed API key>'
 python scripts/validate_deployed.py 'https://YOUR-SERVICE.run.app' --timeout 3600
 ```
 
-## Google Cloud deployment
+## Google Cloud status
 
-Deployment is blocked on hackathon credits, not on code. When they land, the swap is
-`VERITY_ENV=cloud` plus the deployment below — the cloud adapters (`FirestoreJobStore`,
-`PubSubJobQueue`, `VertexAIModelClient`, `CloudRunJobBackend`) are implemented and wired,
-but unverified against live Google Cloud until the hackathon credits are active.
+**Do not deploy the current cloud profile.** The adapters exist, but the 2026-08-24 audit found
+that the sandbox task must read Firestore using a service account while it executes arbitrary
+repository code with outbound networking. That code could request the task's metadata-server
+credentials. The old deployment script also had IAM, secret-newline, native-command failure,
+Pub/Sub-token, timeout, and telemetry defects. Production now fails closed before provisioning.
 
-Prerequisites:
-
-1. A Google Cloud project with the hackathon's credit-backed billing account attached.
-   GCP will not provision Cloud Run, Firestore, or Pub/Sub without a billing account
-   object; this one is funded entirely by the $150 grant. No payment method is added
-   beyond it, and nothing is provisioned that would draw down real money once the
-   credit is exhausted.
-2. Google Cloud SDK authenticated with project-owner-equivalent setup permissions.
-3. A fine-grained GitHub token with **Issues: write** on your report repository. Verity first
-   tries the source repo; on the expected permission failure for third-party repos it files in
-   `VERITY_REPORT_REPO` while linking the source.
-4. The pinned Agents CLI deployment tool:
-
-```powershell
-conda activate agent-dev
-python -m pip install -r requirements-deploy.txt
-agents-cli login -i
-```
-
-Create independent random secrets, keep them out of shell history where possible, and deploy:
-
-```powershell
-$env:VERITY_API_KEY = '<at least 24 random characters>'
-$env:VERITY_PUBSUB_VERIFICATION_TOKEN = '<different random value>'
-$env:VERITY_GITHUB_TOKEN = '<fine-grained token>'
-$env:VERITY_REPORT_REPO = 'owner/verity-reports'
-powershell -File scripts/deploy.ps1 -ProjectId 'your-project-id' -Region 'us-central1' -BudgetUsd 25
-```
-
-The script uses the official `agents-cli deploy --deployment-target cloud_run` path for the
-ADK service, and provisions only the supporting resources it needs: Artifact Registry,
-Firestore, Pub/Sub, the sandbox Cloud Run Job, three least-privilege service accounts, Secret
-Manager entries, and a billing budget with 50/90/100% alerts. The web URL is public so judges
-can reach it, but job endpoints require `X-Verity-Key`; the Pub/Sub endpoint uses a separate
-secret plus an authenticated push identity.
+The required next design is a credential-free sandbox task using a one-time brokered
+request/result handoff, a no-role service identity, controlled egress, OIDC validation for the
+internal worker endpoint, source/image pinning, and cloud-specific isolation/integration
+tests. Only after those tests pass should the deployment guard be removed. At that point a
+project ID, confirmed hackathon billing credits, authenticated `gcloud`, and Agents CLI login
+will be required from the operator. See [the audit](docs/AUDIT-2026-08-24.md).
 
 ## Reproducibility
 
@@ -237,9 +222,11 @@ secret plus an authenticated push identity.
 - Every direct dependency is exactly pinned; after a clean install, run
   `scripts/lock.ps1` to record the entire transitive environment in `requirements-lock.txt`.
 - Both container images use Python 3.11.15 and `--no-cache-dir` installs.
-- Cloud Run Job retries are disabled because Verity owns the visible three-attempt loop.
-- Repository revisions and evaluation conditions are part of the typed parser output and
-  final Issue.
+- Cloud Run Job retries are configured off in the experimental deployment blueprint because
+  Verity owns the visible three-attempt loop.
+- The first resolved repository commit is now recorded and pinned across all repair attempts.
+  Fetched source bytes, the runner image digest, and evaluation conditions are not yet frozen and
+  observed end to end; those remain reproducibility gaps.
 
 ## API
 

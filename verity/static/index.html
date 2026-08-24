@@ -79,12 +79,16 @@
   <footer><a href="/architecture">Architecture</a> · Every retry and patch is persisted; absent evidence remains absent.</footer>
 </main>
 <script>
-const form=document.querySelector('#form'), button=document.querySelector('#submit'), error=document.querySelector('#error');
+const form=document.querySelector('#form'), button=document.querySelector('#submit'), error=document.querySelector('#error'), keyInput=document.querySelector('#key');
 const statusBox=document.querySelector('#status'), statusLine=document.querySelector('#statusline'), statusText=document.querySelector('#statusText');
 const result=document.querySelector('#result'), trace=document.querySelector('#trace');
+const linkedJob=new URLSearchParams(location.search).get('job');
 let timer=null;
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const headers=()=>({'Content-Type':'application/json','X-Verity-Key':document.querySelector('#key').value});
+const isTerminal=status=>['completed','failed'].includes(status);
+function clearPolling(){if(timer!==null){clearInterval(timer);timer=null;}}
+function finishPolling(){clearPolling();button.disabled=false;}
 function render(view){
   const j=view.job; statusText.textContent=j.status.replaceAll('_',' '); statusLine.className='statusline '+(j.status==='completed'?'done':j.status==='failed'?'failed':'');
   // Each debug attempt logs two events (started + finished), so three attempts render as
@@ -103,18 +107,22 @@ function render(view){
     shown.push({agent:e.agent,label:e.action.replaceAll('_',' ')});
   }
   trace.innerHTML=shown.map(e=>`<div class="event"><span class="agent">${esc(e.agent)}</span><span>${esc(e.label)}</span></div>`).join('');
-  if(j.verdict){const v=j.verdict,c=v.claim; const analysis=v.issue_url?`<a class="analysis" href="${esc(v.issue_url)}" target="_blank" rel="noopener">View detailed analysis (GitHub Issue) &rarr;</a>`:'';
-    result.innerHTML=`<div class="summary"><strong>${esc(v.status.replaceAll('_',' '))}</strong><br>${esc(v.summary)}${analysis}</div><div class="grid"><div class="cell"><small>Claimed</small><strong>${esc(c.value)}${esc(c.unit)}</strong></div><div class="cell"><small>Reproduced</small><strong>${v.actual_value===null?'Not captured':esc(v.actual_value)+esc(c.unit)}</strong></div><div class="cell"><small>Confidence</small><strong>${esc(v.confidence)}</strong></div><div class="cell"><small>Artifact</small><strong>${v.issue_url?`<a href="${esc(v.issue_url)}" target="_blank" rel="noopener">GitHub Issue</a>`:'Not filed'}</strong></div></div>`;}
+  if(j.verdict){const v=j.verdict,c=v.claim; const analysis=v.issue_url?`<a class="analysis" href="${esc(v.issue_url)}" target="_blank" rel="noopener">View detailed analysis (GitHub Issue) &rarr;</a>`:''; const valueLabel=v.status==='conditions_not_comparable'?'Observed':'Reproduced';
+    result.innerHTML=`<div class="summary"><strong>${esc(v.status.replaceAll('_',' '))}</strong><br>${esc(v.summary)}${analysis}</div><div class="grid"><div class="cell"><small>Claimed</small><strong>${esc(c.value)}${esc(c.unit)}</strong></div><div class="cell"><small>${valueLabel}</small><strong>${v.actual_value===null?'Not captured':esc(v.actual_value)+esc(c.unit)}</strong></div><div class="cell"><small>Confidence</small><strong>${esc(v.confidence)}</strong></div><div class="cell"><small>Artifact</small><strong>${v.issue_url?`<a href="${esc(v.issue_url)}" target="_blank" rel="noopener">GitHub Issue</a>`:'Not filed'}</strong></div></div>`;}
   if(j.error) error.textContent=j.error;
-  if(['completed','failed'].includes(j.status)){clearInterval(timer); button.disabled=false;}
+  if(isTerminal(j.status))finishPolling();
+  return isTerminal(j.status);
 }
-async function poll(id){try{const r=await fetch(`/api/jobs/${id}`,{headers:headers()});if(!r.ok)throw new Error((await r.json()).detail||r.statusText);render(await r.json());}catch(e){error.textContent=e.message;}}
-// ?job=<id> loads an existing verdict straight away, so a result can be linked to and
-// shared without resubmitting it.
-(()=>{const j=new URLSearchParams(location.search).get('job');
- if(j){statusBox.classList.add('visible');statusText.textContent='Loading';poll(j);}})();
+async function poll(id){try{const r=await fetch(`/api/jobs/${id}`,{headers:headers()});if(!r.ok)throw new Error((await r.json()).detail||r.statusText);return render(await r.json());}catch(e){error.textContent=e.message;finishPolling();return true;}}
+async function startPolling(id){clearPolling();const done=await poll(id);if(!done)timer=setInterval(()=>{void poll(id);},2000);}
+// ?job=<id> loads an existing verdict straight away. On a protected deployment the first
+// empty-key request returns 401; changing the key retries the same linked job.
+function loadLinkedJob(){if(linkedJob){error.textContent='';statusBox.classList.add('visible');statusText.textContent='Loading';void startPolling(linkedJob);}}
+loadLinkedJob();
+keyInput.addEventListener('change',loadLinkedJob);
+keyInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&linkedJob){e.preventDefault();loadLinkedJob();}});
 document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{document.querySelector('#url').value=c.dataset.url;document.querySelector('#url').focus();}));
-form.addEventListener('submit',async e=>{e.preventDefault();clearInterval(timer);error.textContent='';result.innerHTML='';trace.innerHTML='';button.disabled=true;statusBox.classList.add('visible');statusText.textContent='Submitting';try{const r=await fetch('/api/jobs',{method:'POST',headers:headers(),body:JSON.stringify({url:document.querySelector('#url').value})});const data=await r.json();if(!r.ok)throw new Error(data.detail||r.statusText);await poll(data.job_id);timer=setInterval(()=>poll(data.job_id),2000);}catch(e){error.textContent=e.message;button.disabled=false;}});
+form.addEventListener('submit',async e=>{e.preventDefault();clearPolling();error.textContent='';result.innerHTML='';trace.innerHTML='';button.disabled=true;statusBox.classList.add('visible');statusText.textContent='Submitting';try{const r=await fetch('/api/jobs',{method:'POST',headers:headers(),body:JSON.stringify({url:document.querySelector('#url').value})});const data=await r.json();if(!r.ok)throw new Error(data.detail||r.statusText);await startPolling(data.job_id);}catch(e){error.textContent=e.message;finishPolling();}});
 </script>
 </body>
 </html>

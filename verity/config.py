@@ -8,8 +8,8 @@ GCP project, no card. ``cloud`` selects Firestore, Pub/Sub, Cloud Run, and Verte
 is the single swap point; nothing else in the codebase branches on it.
 
 ``VERITY_ENVIRONMENT`` — **how strict Verity is about itself**: ``development``, ``test``,
-or ``production``. Production additionally requires ``VERITY_ENV=cloud`` and a complete
-set of secrets.
+or ``production``. Production requires ``VERITY_ENV=cloud`` and a complete set of secrets,
+and is currently fail-closed while the Cloud Run sandbox trust boundary is redesigned.
 
 Individual backends can still be overridden one at a time (``VERITY_STORE_BACKEND`` and
 friends); an unset override means "whatever ``VERITY_ENV`` implies".
@@ -115,6 +115,12 @@ class Settings(BaseSettings):
             errors.append("production requires the pubsub message backend")
         if self.sandbox != "cloud_run":
             errors.append("production requires the cloud_run sandbox backend")
+        else:
+            errors.append(
+                "production Cloud Run sandbox is disabled: the current task has outbound "
+                "network access and a project identity while executing untrusted code; use "
+                "the local Docker profile until a credential-free brokered handoff exists"
+            )
         if not self.google_cloud_project:
             errors.append("GOOGLE_CLOUD_PROJECT is required")
         if not self.api_key or len(self.api_key.get_secret_value()) < 24:

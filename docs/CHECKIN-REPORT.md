@@ -1,5 +1,8 @@
 # Verity — Check-In Report
 
+> **Historical snapshot (2026-08-22).** Use [STATE.md](STATE.md) and
+> [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md) for current facts.
+
 **Date:** 2026-08-22 · **Repo:** https://github.com/ZiyadAzzaz/verity · `main` @ `6af42dc`
 
 ---

@@ -156,6 +156,23 @@ class TestFixesSection:
         assert "### Fixes applied" in body
         assert "none produced a reproduction" not in body
 
+    @pytest.mark.parametrize(
+        "status", [VerdictStatus.CONTRADICTED, VerdictStatus.CONDITIONS_NOT_COMPARABLE]
+    )
+    def test_a_completed_measurement_reports_its_fixes_as_applied(
+        self, status: VerdictStatus
+    ) -> None:
+        verdict = build_verdict(status, ["write_file run_eval.py"], [attempt(1, with_patch=True)])
+        _title, body = render_issue(verdict, parsed(), "job-1")
+        assert "### Fixes applied" in body
+        assert "none produced a reproduction" not in body
+
+    def test_condition_sensitive_result_is_labelled_observed_not_reproduced(self) -> None:
+        verdict = build_verdict(VerdictStatus.CONDITIONS_NOT_COMPARABLE, [], [])
+        _title, body = render_issue(verdict, parsed(), "job-1")
+        assert "| Observed |" in body
+        assert "| Reproduced |" not in body
+
     def test_genuinely_no_patch_says_so_explicitly(self) -> None:
         verdict = build_verdict(VerdictStatus.COULD_NOT_VERIFY, [], [attempt(1, with_patch=False)])
         _title, body = render_issue(verdict, parsed(), "job-1")
@@ -182,3 +199,30 @@ class TestEvidenceSection:
         )
         _title, body = render_issue(verdict, parsed(), "job-1")
         assert "<details>" in body and "</details>" in body
+
+    def test_untrusted_markdown_cannot_escape_the_evidence_fence_or_ping_users(self) -> None:
+        verdict = build_verdict(VerdictStatus.COULD_NOT_VERIFY, [], [attempt(1, with_patch=False)])
+        verdict = verdict.model_copy(
+            update={
+                "evidence": [
+                    "Output: ```\n## forged section\n```\n@octocat this must not notify anyone"
+                ]
+            }
+        )
+        _title, body = render_issue(verdict, parsed(), "job-1")
+        assert "````\n```\n## forged section" in body
+        assert "@octocat" not in body
+        assert "@\u200boctocat" in body
+
+    def test_untrusted_table_fields_are_escaped_and_flattened(self) -> None:
+        source = parsed()
+        malicious_claim = source.claim.model_copy(
+            update={"metric": "latency | @octocat", "dataset": "data\n## forged"}
+        )
+        source = source.model_copy(update={"claim": malicious_claim})
+        verdict = build_verdict(VerdictStatus.COULD_NOT_VERIFY, [], [])
+        verdict = verdict.model_copy(update={"claim": malicious_claim})
+        title, body = render_issue(verdict, source, "job-1")
+        assert "@octocat" not in title + body
+        assert "latency \\| @\u200boctocat" in body
+        assert "\n## forged" not in body

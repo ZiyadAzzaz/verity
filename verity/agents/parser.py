@@ -35,15 +35,15 @@ class ParserAgent:
             schema=ParsedClaim,
             document=document,
         )
-        parsed = parsed.model_copy(
-            update={
-                "source_url": document.requested_url,
-                "source_type": document.source_type,
-            }
-        )
+        payload = parsed.model_dump(mode="python")
+        payload["source_url"] = document.requested_url
+        payload["source_type"] = document.source_type
         if parsed.execution.repository_url is not None:
             repository_url = validate_repository_url(
                 str(parsed.execution.repository_url), self._allowed_repo_hosts
             )
-            parsed.execution.repository_url = repository_url  # type: ignore[assignment]
-        return ParsedClaim.model_validate(parsed.model_dump())
+            execution = payload["execution"]
+            if not isinstance(execution, dict):
+                raise TypeError("ParsedClaim execution did not serialize as an object")
+            execution["repository_url"] = repository_url
+        return ParsedClaim.model_validate(payload)

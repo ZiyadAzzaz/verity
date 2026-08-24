@@ -8,18 +8,19 @@ import json
 import os
 import time
 from pathlib import Path
+from typing import Any, cast
 
 import httpx
 
 
-async def wait_for_job(client: httpx.AsyncClient, job_id: str, timeout: int) -> dict:
+async def wait_for_job(client: httpx.AsyncClient, job_id: str, timeout: int) -> dict[str, Any]:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         response = await client.get(f"/api/jobs/{job_id}")
         response.raise_for_status()
         view = response.json()
         if view["job"]["status"] in {"completed", "failed"}:
-            return view
+            return cast(dict[str, Any], view)
         await asyncio.sleep(5)
     raise TimeoutError(f"job {job_id} did not finish within {timeout}s")
 
@@ -28,8 +29,11 @@ async def main(base_url: str, timeout: int) -> None:
     api_key = os.environ.get("VERITY_API_KEY")
     if not api_key:
         raise SystemExit("Set VERITY_API_KEY for the deployed service.")
-    urls = json.loads(Path("tests/data/deployed_claim_urls.json").read_text(encoding="utf-8"))
-    terminal: list[dict] = []
+    urls = cast(
+        list[str],
+        json.loads(Path("tests/data/deployed_claim_urls.json").read_text(encoding="utf-8")),
+    )
+    terminal: list[dict[str, Any]] = []
     async with httpx.AsyncClient(
         base_url=base_url.rstrip("/"),
         headers={"X-Verity-Key": api_key},

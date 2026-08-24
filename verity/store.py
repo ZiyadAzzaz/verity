@@ -242,19 +242,48 @@ class FirestoreJobStore(JobStore):
         return [event.model_copy(update={"sequence": index}) for index, event in enumerate(events)]
 
     async def complete_job(self, job_id: str, verdict: Verdict) -> JobRecord:
-        job = await self.update_job(job_id, verdict=verdict, status=JobStatus.COMPLETED)
-        memory_ref = self._db.collection("claim_memory").document(claim_key(job.canonical_url))
-        await memory_ref.set(
-            {
-                "canonical_url": job.canonical_url,
-                "job_id": job_id,
-                "status": JobStatus.COMPLETED.value,
-                "verdict": verdict.model_dump(mode="json"),
-                "updated_at": utc_now(),
-            },
-            merge=True,
-        )
-        return job
+        job_ref = self._db.collection("jobs").document(job_id)
+        transaction = self._db.transaction()
+
+        @self._firestore.async_transactional
+        async def complete(transaction: Any) -> JobRecord:
+            snapshot = await job_ref.get(transaction=transaction)
+            if not snapshot.exists:
+                raise KeyError(job_id)
+            job = JobRecord.model_validate(snapshot.to_dict())
+            now = utc_now()
+            updated = job.model_copy(
+                update={
+                    "verdict": verdict,
+                    "status": JobStatus.COMPLETED,
+                    "updated_at": now,
+                }
+            )
+            memory_ref = self._db.collection("claim_memory").document(claim_key(job.canonical_url))
+            # The durable verdict and the cache pointer become visible together. A worker
+            # death can no longer leave a completed job that the memory bank cannot find.
+            transaction.update(
+                job_ref,
+                {
+                    "verdict": verdict.model_dump(mode="json"),
+                    "status": JobStatus.COMPLETED.value,
+                    "updated_at": now,
+                },
+            )
+            transaction.set(
+                memory_ref,
+                {
+                    "canonical_url": job.canonical_url,
+                    "job_id": job_id,
+                    "status": JobStatus.COMPLETED.value,
+                    "verdict": verdict.model_dump(mode="json"),
+                    "updated_at": now,
+                },
+                merge=True,
+            )
+            return updated
+
+        return await complete(transaction)
 
     async def find_cached_result(self, canonical_url: str) -> JobRecord | None:
         snapshot = (

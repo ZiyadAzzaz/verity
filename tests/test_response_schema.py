@@ -57,3 +57,51 @@ def test_a_hallucinated_field_is_rejected_on_parse() -> None:
             source_location="README",
             confidence_the_model_invented=0.9,  # type: ignore[call-arg]
         )
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_claim_values_must_be_finite(value: float) -> None:
+    with pytest.raises(ValidationError):
+        Claim(
+            metric="accuracy",
+            value=value,
+            dataset="ExampleSet",
+            source_location="README",
+        )
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_observed_values_must_be_finite(value: float) -> None:
+    with pytest.raises(ValidationError):
+        EnvironmentResult(
+            succeeded=True,
+            phase="metric",
+            actual_value=value,
+            duration_seconds=1.0,
+        )
+
+
+@pytest.mark.parametrize(
+    "repository_commit",
+    ["abc123", "g" * 40, "A" * 40, "a" * 39, "a" * 41],
+)
+def test_repository_commit_must_be_a_full_lowercase_git_object_id(
+    repository_commit: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        EnvironmentResult(
+            succeeded=True,
+            phase="metric",
+            duration_seconds=1.0,
+            repository_commit=repository_commit,
+        )
+
+
+def test_a_full_repository_commit_is_accepted() -> None:
+    result = EnvironmentResult(
+        succeeded=True,
+        phase="metric",
+        duration_seconds=1.0,
+        repository_commit="a" * 40,
+    )
+    assert result.repository_commit == "a" * 40

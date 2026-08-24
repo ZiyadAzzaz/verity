@@ -2,7 +2,7 @@
 
 **Run the whole pipeline on your own machine in about ten minutes, without an API key.**
 
-This guide is written for someone who has never seen this repository. Two of the claim URLs
+This guide is written for someone who has never seen this repository. Five claim URLs
 below are pre-verified and ship with their results, so you can watch a real verdict come back
 **instantly and without a single Gemini API call**. If you want to verify a *new* claim you
 will need your own free key — that path is covered at the end.
@@ -63,11 +63,11 @@ cp .env.example .env
 Confirm the machine is ready:
 
 ```bash
-python scripts/check_setup.py
+python scripts/check_setup.py --allow-missing-key
 ```
 
-It will report `GEMINI_API_KEY is empty` — expected, and fine for the cached path. Everything
-else should be `[ OK ]`, including the Docker daemon.
+It will report a warning that `GEMINI_API_KEY is empty`—expected for the cached path—and still
+return success when Python, dependencies, and Docker are ready.
 
 ---
 
@@ -95,7 +95,7 @@ Worth opening while you read:
 
 ## 4. The cached demo — no API key, no quota, instant
 
-Two claims have already been run end to end through the real pipeline. Their verdicts, full
+Five claims have already been run end to end through the real pipeline. Their verdicts, full
 agent traces, and claim-memory entries ship in this repository at
 `docs/assets/demo-cache/verity-demo.db`.
 
@@ -113,7 +113,7 @@ Five claims covering **four different outcomes**, so the full range is visible w
 key: a claim that reproduces, two that honestly do not, one the source never asserted as a
 result, and one the sandbox genuinely could not host.
 
-**Submitting either of these hits the local cache and makes no Gemini API call at all.**
+**Submitting any of these hits the local cache and makes no Gemini API call at all.**
 Anything else attempts a real verification and needs a key.
 
 ### Step 1 — point Verity at the shipped cache and start it
@@ -121,15 +121,23 @@ Anything else attempts a real verification and needs a key.
 **Windows PowerShell:**
 
 ```powershell
-$env:VERITY_SQLITE_PATH = "docs/assets/demo-cache/verity-demo.db"
+New-Item -ItemType Directory -Force .verity-data | Out-Null
+Copy-Item docs/assets/demo-cache/verity-demo.db .verity-data/verity-demo.db -Force
+$env:VERITY_SQLITE_PATH = ".verity-data/verity-demo.db"
 python -m uvicorn app.fast_api_app:app --port 8080
 ```
 
 **macOS / Linux:**
 
 ```bash
-VERITY_SQLITE_PATH=docs/assets/demo-cache/verity-demo.db python -m uvicorn app.fast_api_app:app --port 8080
+mkdir -p .verity-data
+cp docs/assets/demo-cache/verity-demo.db .verity-data/verity-demo.db
+VERITY_SQLITE_PATH=.verity-data/verity-demo.db python -m uvicorn app.fast_api_app:app --port 8080
 ```
+
+The copy is deliberate. The committed cache is a curated fixture and Verity refuses to open it
+for writing; using a scratch copy keeps the shipped evidence unchanged while the API updates
+timestamps and accepts new submissions.
 
 Wait for this line. **Startup takes 10–20 seconds** because Verity checks the Docker daemon
 before accepting any job:
@@ -315,7 +323,7 @@ powershell -File scripts/test.ps1 -Docker
 ```
 
 Runs ruff, `ruff format --check`, `mypy --strict`, and the full suite **including** the
-container tests. Expect **118 passed**, nothing skipped.
+container tests. The audited result is **221 passed** with two dependency deprecation warnings.
 
 Without a Docker daemon, drop `-Docker` and the 9 container tests deselect themselves rather
 than failing.
@@ -369,8 +377,10 @@ VERITY_ENV=cloud
 No agent, pipeline step, or test changes — `verity/container.py` is the only module that
 imports a concrete backend.
 
-**Status, stated plainly:** the cloud adapters are implemented and selectable but have not yet
-been run against live Google Cloud. See [`docs/PROJECT-ANALYSIS.md`](PROJECT-ANALYSIS.md) §3.1.
+**Status, stated plainly:** the cloud adapters are experimental, have not run against live
+Google Cloud, and are blocked in production because the current sandbox task combines untrusted
+code, outbound networking, and a project identity. Do not deploy it until the credential-free
+handoff and cloud isolation work in [`AUDIT-2026-08-24.md`](AUDIT-2026-08-24.md) is complete.
 
 ---
 

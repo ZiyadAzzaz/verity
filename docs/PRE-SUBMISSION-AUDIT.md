@@ -1,5 +1,9 @@
 # Verity — Pre-Submission Audit
 
+> **Historical snapshot (2026-08-23).** Superseded by
+> [STATE.md](STATE.md) and [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md). Its test count,
+> eight-source gate claim, and cloud-readiness assessment are not current.
+
 **Date:** 2026-08-23
 **Method:** a fresh, skeptical pass. Every item below was **re-checked now**, not reported from
 memory of having done it earlier. Where something is not verified, it says so.

@@ -110,21 +110,42 @@ def guard_demo_cache(path: Path) -> None:
 class SQLiteJobStore(JobStore):
     """A :class:`JobStore` over one local SQLite file (default ``verity.db``)."""
 
-    def __init__(self, database_path: str | Path = "verity.db") -> None:
+    def __init__(
+        self,
+        database_path: str | Path = "verity.db",
+        *,
+        read_only: bool = False,
+    ) -> None:
+        """Open a writable store, or an immutable snapshot for side-effect-free inspection.
+
+        ``read_only=True`` is intended for a closed database or copied fixture. Immutable mode
+        deliberately ignores concurrent writers and their WAL, so it must not be used as a
+        live read replica.
+        """
+
         self._path = Path(database_path)
-        guard_demo_cache(self._path)
-        if self._path.parent != Path():
+        self._read_only = read_only
+        if not read_only:
+            guard_demo_cache(self._path)
+        if not read_only and self._path.parent != Path():
             self._path.parent.mkdir(parents=True, exist_ok=True)
+        database = (
+            self._path.resolve().as_uri() + "?mode=ro&immutable=1" if read_only else str(self._path)
+        )
         self._connection = sqlite3.connect(
-            self._path,
+            database,
+            uri=read_only,
             check_same_thread=False,
             isolation_level=None,
             timeout=30,
         )
         self._connection.row_factory = sqlite3.Row
-        self._connection.execute("PRAGMA journal_mode=WAL")
-        self._connection.execute("PRAGMA foreign_keys=ON")
-        self._connection.executescript(SCHEMA)
+        if read_only:
+            self._connection.execute("PRAGMA query_only=ON")
+        else:
+            self._connection.execute("PRAGMA journal_mode=WAL")
+            self._connection.execute("PRAGMA foreign_keys=ON")
+            self._connection.executescript(SCHEMA)
         # sqlite3 is synchronous; the lock keeps the shared connection single-writer and
         # keeps `BEGIN IMMEDIATE` blocks from interleaving across pipeline tasks.
         self._lock = asyncio.Lock()

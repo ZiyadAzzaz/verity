@@ -5,6 +5,15 @@ param(
     [string]$ReportRepo = $env:VERITY_REPORT_REPO
 )
 
+throw @"
+Cloud deployment is intentionally disabled by the 2026-08-24 security audit.
+The current Cloud Run sandbox executes untrusted repository code with outbound network
+access and a service-account identity that can reach Firestore. That is not equivalent to
+the tested local Docker boundary. Implement a credential-free brokered request/result
+handoff and evaluation egress controls, then remove this guard only after cloud isolation
+tests pass. No Google Cloud resources were changed by this invocation.
+"@
+
 $ErrorActionPreference = "Stop"
 $apiKey = $env:VERITY_API_KEY
 $pubsubToken = $env:VERITY_PUBSUB_VERIFICATION_TOKEN
