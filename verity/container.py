@@ -56,7 +56,7 @@ class Container:
 
     async def shutdown(self) -> None:
         await self.queue.close()
-        # SQLite holds an OS-level handle on verity.db; Firestore has nothing to close.
+        # Concrete durable stores can hold SQLite handles or Firestore HTTP resources.
         close = getattr(self.store, "close", None)
         if callable(close):
             close()

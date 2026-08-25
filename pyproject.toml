@@ -51,6 +51,7 @@ markers = [
   "live: requires network access and Gemini credentials",
   "cloud: requires authenticated Google Cloud resources",
   "docker: requires a running Docker daemon",
+  "emulator: requires the official local Google Cloud emulators",
 ]
 
 [tool.ruff]

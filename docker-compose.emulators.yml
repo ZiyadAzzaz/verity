@@ -1,0 +1,61 @@
+name: verity-emulators
+
+# Google publishes this image specifically with the Firestore and Pub/Sub emulators.
+# Pinning the resolved digest keeps the rehearsal reproducible while still making the
+# provenance obvious. No credentials, host directories, or cloud project are mounted.
+x-google-emulator-image: &google-emulator-image
+  gcr.io/google.com/cloudsdktool/google-cloud-cli@sha256:25300472f1fa63b4df0e0c3a5dd67bdc6774b39f6dd440605e520a6d04ae0f26
+
+services:
+  firestore:
+    image: *google-emulator-image
+    command:
+      - gcloud
+      - emulators
+      - firestore
+      - start
+      - --host-port=0.0.0.0:8080
+      - --project=verity-emulator-test
+      - --quiet
+    environment:
+      CLOUDSDK_CORE_DISABLE_PROMPTS: "1"
+    init: true
+    ports:
+      - "127.0.0.1:18080:8080"
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import socket; socket.create_connection(('127.0.0.1', 8080), 2).close()"
+      interval: 2s
+      timeout: 3s
+      retries: 45
+      start_period: 5s
+
+  pubsub:
+    image: *google-emulator-image
+    command:
+      - gcloud
+      - beta
+      - emulators
+      - pubsub
+      - start
+      - --host-port=0.0.0.0:8085
+      - --project=verity-emulator-test
+      - --quiet
+    environment:
+      CLOUDSDK_CORE_DISABLE_PROMPTS: "1"
+    init: true
+    ports:
+      - "127.0.0.1:18085:8085"
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import socket; socket.create_connection(('127.0.0.1', 8085), 2).close()"
+      interval: 2s
+      timeout: 3s
+      retries: 45
+      start_period: 5s

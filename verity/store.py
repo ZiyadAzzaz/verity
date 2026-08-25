@@ -11,7 +11,8 @@ import asyncio
 import hashlib
 import uuid
 from collections import defaultdict
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 from verity.interfaces import JobStore
 from verity.models import (
@@ -136,6 +137,11 @@ class FirestoreJobStore(JobStore):
 
         self._firestore = firestore
         self._db = firestore.AsyncClient(project=project)
+
+    def close(self) -> None:
+        """Release HTTP resources held by the Firestore client, when present."""
+        close_client = cast(Callable[[], None], self._db.close)
+        close_client()
 
     async def create_or_get(self, canonical_url: str) -> tuple[JobRecord, bool]:
         memory_ref = self._db.collection("claim_memory").document(claim_key(canonical_url))

@@ -82,13 +82,19 @@ class PubSubJobQueue(JobQueue):
     pipeline launcher. The method exists so the two environments share one interface.
     """
 
-    def __init__(self, project: str, topic: str) -> None:
+    def __init__(self, project: str, topic: str, *, publish_timeout_seconds: float = 30) -> None:
         from google.cloud import pubsub_v1  # type: ignore[attr-defined]
 
+        if publish_timeout_seconds <= 0:
+            raise ValueError("publish_timeout_seconds must be positive")
         self._client = pubsub_v1.PublisherClient()
         self._topic_path = self._client.topic_path(project, topic)
+        self._publish_timeout = publish_timeout_seconds
+        self._closed = False
 
     async def publish(self, job_id: str, source_url: str) -> None:
+        if self._closed:
+            raise RuntimeError("Pub/Sub publisher is closed")
         payload = json.dumps(
             {"job_id": job_id, "source_url": source_url}, separators=(",", ":")
         ).encode("utf-8")
@@ -98,10 +104,16 @@ class PubSubJobQueue(JobQueue):
             job_id=job_id,
             content_type="application/json",
         )
-        await asyncio.to_thread(future.result, timeout=30)
+        await asyncio.to_thread(future.result, timeout=self._publish_timeout)
 
     async def consume(self, handler: JobHandler) -> None:
         logger.info("Pub/Sub delivery is push-based; no in-process consumer is started")
+
+    async def close(self) -> None:
+        """Stop publisher workers and reject future publishes during shutdown."""
+        if not self._closed:
+            self._client.stop()
+            self._closed = True
 
 
 def decode_push_envelope(envelope: dict[str, object]) -> tuple[str, str | None]:

@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from verity.api import create_app
 from verity.config import Settings
-from verity.messaging import decode_push_envelope
+from verity.messaging import PubSubJobQueue, decode_push_envelope
 
 
 def test_decode_pubsub_envelope() -> None:
@@ -20,6 +20,54 @@ def test_decode_pubsub_envelope() -> None:
 def test_decode_pubsub_rejects_invalid_data() -> None:
     with pytest.raises(ValueError, match="base64"):
         decode_push_envelope({"message": {"data": "%%%"}})
+
+
+async def test_pubsub_publisher_uses_bounded_timeout_and_stops(monkeypatch) -> None:
+    from google.cloud import pubsub_v1
+
+    observed: dict[str, object] = {}
+
+    class _Future:
+        def result(self, *, timeout: float) -> str:
+            observed["timeout"] = timeout
+            return "message-1"
+
+    class _Publisher:
+        def topic_path(self, project: str, topic: str) -> str:
+            return f"projects/{project}/topics/{topic}"
+
+        def publish(self, topic: str, data: bytes, **attributes: str) -> _Future:
+            observed.update(topic=topic, data=data, attributes=attributes)
+            return _Future()
+
+        def stop(self) -> None:
+            observed["stop_count"] = int(observed.get("stop_count", 0)) + 1
+
+    monkeypatch.setattr(pubsub_v1, "PublisherClient", _Publisher)
+    queue = PubSubJobQueue("project", "jobs", publish_timeout_seconds=7)
+
+    await queue.publish("job-1", "https://example.com/claim")
+    await queue.close()
+    await queue.close()
+
+    assert observed["timeout"] == 7
+    assert observed["topic"] == "projects/project/topics/jobs"
+    assert json.loads(observed["data"]) == {
+        "job_id": "job-1",
+        "source_url": "https://example.com/claim",
+    }
+    assert observed["attributes"] == {
+        "job_id": "job-1",
+        "content_type": "application/json",
+    }
+    assert observed["stop_count"] == 1
+    with pytest.raises(RuntimeError, match="publisher is closed"):
+        await queue.publish("job-2", "https://example.com/other")
+
+
+def test_pubsub_publisher_rejects_unbounded_timeout() -> None:
+    with pytest.raises(ValueError, match="must be positive"):
+        PubSubJobQueue("project", "jobs", publish_timeout_seconds=0)
 
 
 class _FakeContainer:

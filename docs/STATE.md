@@ -1,6 +1,6 @@
 # Verity — Current State and Next Steps
 
-**Audited:** 2026-08-24; scoped cloud-security implementation updated 2026-08-25
+**Audited:** 2026-08-24; scoped cloud-security and emulator validation updated 2026-08-25
 
 **Audit implementation:** `696cdfd3989633e80e7fd0b98c6e21794cabcd1d`
 
@@ -28,22 +28,28 @@ run. Production remains fail-closed until a real sandbox task steals its metadat
 that all sensitive project APIs deny it. See
 [SCOPED-CLOUD-SECURITY-FIX.md](SCOPED-CLOUD-SECURITY-FIX.md).
 
+The Firestore and Pub/Sub adapters have now also passed Google's official local emulators with no
+account or credentials. This reduces adapter and transaction risk but is not live-cloud evidence.
+See [EMULATOR-VALIDATION-2026-08-25.md](EMULATOR-VALIDATION-2026-08-25.md).
+
 ## Verified evidence
 
 | Area | Current evidence |
 |---|---|
 | Public repositories | `verity` and `verity-reports` both return public GitHub metadata |
-| Local/remote base | local `main` and public `origin/main` both resolve to `7432493` |
+| Repository base before this validation | local `main` and public `origin/main` resolved to security commit `7aa52ce` |
 | Python environment | `agent-dev`, Python 3.11.15; exact locked package set; `pip check` clean |
 | Static gates | Ruff check, Ruff format check, and strict mypy pass after the audit changes |
-| Full non-Docker selection | **262 passed, 9 Docker tests deselected**, 2 upstream deprecation warnings |
-| Full Docker-inclusive suite | **271 passed** total (262 non-Docker + 9 real-Docker tests) |
+| Full non-Docker selection | **264 passed, 3 emulator tests skipped, 9 Docker tests deselected**, 2 upstream deprecation warnings |
+| Full Docker-inclusive suite | **273 passed, 3 emulator tests skipped**, 2 upstream deprecation warnings |
+| Total unique tests with emulators | **276 passed**: 273 standard/Docker tests plus 3 official-emulator tests |
 | Real isolation probe | 8/8 attacks blocked: host files, rootfs write, eval network, privilege, Docker socket, PID cap; install network and workspace write behave as designed |
 | Immutable revision smoke | a real public GitHub commit was fetched by full SHA, checked out detached in Docker, evaluated, and recorded without drift |
 | Local HTTP smoke | `/`, `/architecture`, `/healthz`, submission, cache lookup, verdict, and trace paths returned correctly against a writable copy of the demo DB |
 | Demo cache | Five jobs, four historical outcomes, instant and zero model calls; read-only inspection creates no WAL/SHM sidecars |
 | GitHub artifacts | Issues #1–#5 exist; #1, #3, #4, and #5 are real verdict artifacts, while #2 is explicitly a synthetic wiring probe |
 | Runtime cleanup | no verification containers left running after the gates |
+| Cloud-adapter emulators | **3 passed** against official Firestore 1.22.0 and Pub/Sub 0.8.35 emulators; exact containers removed afterward |
 
 The in-app Browser had no attached tab/surface during this audit. HTTP behavior and generated
 assets were checked, but a fresh interactive click/render pass is still a human-assisted step.
@@ -132,6 +138,8 @@ older code and should not be cited as a sound contradiction.
   atomically complete the Firestore job and claim-memory record.
 - Added the Apache-2.0 `LICENSE` file declared by the package metadata.
 - Made the cloud production profile and deployment script fail closed.
+- Added digest-pinned official Firestore/Pub/Sub emulators and verified real transaction,
+  serialization, publish, delivery, acknowledgement, and duplicate-claim behavior.
 
 ## Release blockers
 
@@ -159,10 +167,11 @@ Required evidence before removing either production guard:
 
 ### P0 — live cloud proof
 
-No `run.app` URL, Google Cloud project, Vertex call, Firestore transaction, Pub/Sub delivery,
-Cloud Run Job execution, Cloud Trace, or Cloud Logging record was available to verify. `gcloud`
-and `agents-cli` are not installed/authenticated on this machine. This remains a hard submission
-requirement after the trust boundary is fixed.
+No `run.app` URL, authenticated Google Cloud project, Vertex call, managed-service Firestore
+transaction, managed Pub/Sub delivery, Cloud Run Job execution, Cloud Trace, or Cloud Logging
+record was available to verify. Local Firestore and Pub/Sub emulator coverage now exists, but
+`gcloud` and `agents-cli` are not installed/authenticated on this machine. Live deployment remains
+a hard submission requirement after the trust boundary is fixed.
 
 ### P1 — evidence comparability
 

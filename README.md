@@ -47,6 +47,7 @@ genuine result returns instantly without a single model call.
 | [docs/SECURITY-QUALITY-REPORT.md](docs/SECURITY-QUALITY-REPORT.md) | Professional findings, remediations, validation evidence, and residual-risk report |
 | [docs/SCOPED-CLOUD-SECURITY-FIX.md](docs/SCOPED-CLOUD-SECURITY-FIX.md) | Credential-free Cloud Run handoff, no-role identity gate, OIDC fix, and residual risks |
 | [docs/SCOPED-SECURITY-VALIDATION-2026-08-25.md](docs/SCOPED-SECURITY-VALIDATION-2026-08-25.md) | Exact local gates, live rerun evidence, quota blocker, and cloud acceptance status |
+| [docs/EMULATOR-VALIDATION-2026-08-25.md](docs/EMULATOR-VALIDATION-2026-08-25.md) | Official Firestore/Pub/Sub emulator evidence and exact remaining live-cloud gaps |
 | [docs/AUDIT-2026-08-24.md](docs/AUDIT-2026-08-24.md) | Deep code, runtime, security, deployment, and artifact audit |
 | [docs/NEXT-IMPLEMENTATION.md](docs/NEXT-IMPLEMENTATION.md) | Exact evidence, recovery, secure-cloud, and staging gates |
 | [docs/REVIEW.md](docs/REVIEW.md) | Historical 2026-08-23 review |
@@ -168,6 +169,7 @@ Then:
 ```powershell
 powershell -File scripts/test.ps1            # ruff + mypy + unit suite
 powershell -File scripts/test.ps1 -Docker    # the above plus real container isolation
+powershell -File scripts/test_emulators.ps1  # Firestore + Pub/Sub, no cloud account
 ```
 
 `test.ps1` and `bootstrap.ps1` find the interpreter through `scripts/_python.ps1`, which
@@ -180,6 +182,11 @@ The unit suite covers the three input shapes (arXiv PDF, GitHub README, vendor H
 URL/path security, metric capture, exact three-retry honest failure, success-after-patch,
 Pub/Sub decoding, SQLite reservation and restart survival, queue concurrency limits, the
 `VERITY_ENV` swap, Gemini retry/backoff, and instant dedup.
+
+`test_emulators.ps1` starts Google's official Firestore and Pub/Sub emulators from one
+digest-pinned image, binds them only to loopback, runs the cloud-adapter integration tests with a
+fake project ID, and removes its exact containers afterward. It uses no Google Cloud account or
+credentials and is not a substitute for the live identity probe.
 
 Local gates that use real sources, real Gemini, and real containers:
 
