@@ -119,6 +119,7 @@ def build_sandbox(settings: Settings, store: JobStore) -> SandboxBackend:
             job_name=settings.cloud_run_sandbox_job,
             store=store,
             timeout_seconds=settings.execution_timeout_seconds,
+            allowed_repo_hosts=settings.allowed_repo_hosts,
         )
     if settings.sandbox == "host_subprocess":
         logger.warning(

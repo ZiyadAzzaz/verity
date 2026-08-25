@@ -323,7 +323,8 @@ powershell -File scripts/test.ps1 -Docker
 ```
 
 Runs ruff, `ruff format --check`, `mypy --strict`, and the full suite **including** the
-container tests. The audited result is **221 passed** with two dependency deprecation warnings.
+container tests. The current scoped-security result is **271 passed**; the non-Docker selection
+emits two upstream dependency deprecation warnings.
 
 Without a Docker daemon, drop `-Docker` and the 9 container tests deselect themselves rather
 than failing.

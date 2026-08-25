@@ -33,15 +33,42 @@ from verity.models import JobStatus, VerdictStatus
 from verity.telemetry import configure_telemetry
 
 DATA = Path(__file__).resolve().parents[1] / "tests" / "data" / "local_claim_urls.json"
+SHARED_MODEL_CAPACITY_MARKERS = (
+    "429 resource_exhausted",
+    "quota exceeded",
+    "you exceeded your current quota",
+)
 
 
 def load_urls() -> list[dict[str, str]]:
     return list(json.loads(DATA.read_text(encoding="utf-8"))["urls"])
 
 
-async def run(urls: list[str], *, database: str, timeout: float) -> int:
+def is_shared_model_capacity_failure(error: str | None) -> bool:
+    """Return whether later catalogue rows would hit the same external model outage."""
+
+    lowered = (error or "").lower()
+    return any(marker in lowered for marker in SHARED_MODEL_CAPACITY_MARKERS)
+
+
+async def run(
+    urls: list[str],
+    *,
+    database: str,
+    timeout: float,
+    execution_timeout: int = 180,
+    publish: bool = False,
+) -> int:
     configure_telemetry()
-    settings = Settings(env="local", sqlite_path=database)
+    settings = Settings(
+        env="local",
+        sqlite_path=database,
+        execution_timeout_seconds=execution_timeout,
+    )
+    if not publish:
+        # Catalogue regression runs should not create public GitHub artifacts merely because the
+        # operator's .env contains a reporter token. Publishing is a separate explicit action.
+        settings = settings.model_copy(update={"github_token": None})
     container = build_container(settings)
     await container.preflight()
     await container.startup()
@@ -74,13 +101,21 @@ async def run(urls: list[str], *, database: str, timeout: float) -> int:
             if job.status not in {JobStatus.COMPLETED, JobStatus.FAILED}:
                 failures.append(f"{url}: still {job.status.value} after {timeout:.0f}s")
                 rows.append((url, job.status.value, "-", elapsed))
-                continue
+                # The in-process worker may still own the pipeline task. Queuing more sources
+                # would produce misleading rows that time out behind it, so fail this gate now.
+                break
 
             verdict = job.verdict
             if verdict is None:
                 failures.append(f"{url}: finished as {job.status.value} without a verdict")
                 print(f"  FAILED: {job.error}")
                 rows.append((url, job.status.value, "no verdict", elapsed))
+                if is_shared_model_capacity_failure(job.error):
+                    failures.append(
+                        "catalogue stopped: shared Gemini quota/capacity failure would affect "
+                        "every later source"
+                    )
+                    break
                 continue
 
             # The honesty invariant: a number may only be reported when a run produced it.
@@ -139,12 +174,33 @@ def main() -> None:
     parser.add_argument("--limit", type=int, help="run only the first N catalogue URLs")
     parser.add_argument("--database", default="verity-local-validation.db")
     parser.add_argument("--timeout", type=float, default=1800, help="per-job seconds")
+    parser.add_argument(
+        "--execution-timeout",
+        type=int,
+        default=180,
+        help="seconds allowed for each sandbox phase/attempt (default: 180)",
+    )
+    parser.add_argument(
+        "--publish",
+        action="store_true",
+        help="file GitHub Issues for completed verdicts (off by default)",
+    )
     args = parser.parse_args()
 
     urls = args.url or [entry["url"] for entry in load_urls()]
     if args.limit:
         urls = urls[: args.limit]
-    raise SystemExit(asyncio.run(run(urls, database=args.database, timeout=args.timeout)))
+    raise SystemExit(
+        asyncio.run(
+            run(
+                urls,
+                database=args.database,
+                timeout=args.timeout,
+                execution_timeout=args.execution_timeout,
+                publish=args.publish,
+            )
+        )
+    )
 
 
 if __name__ == "__main__":

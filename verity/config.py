@@ -8,8 +8,8 @@ GCP project, no card. ``cloud`` selects Firestore, Pub/Sub, Cloud Run, and Verte
 is the single swap point; nothing else in the codebase branches on it.
 
 ``VERITY_ENVIRONMENT`` — **how strict Verity is about itself**: ``development``, ``test``,
-or ``production``. Production requires ``VERITY_ENV=cloud`` and a complete set of secrets,
-and is currently fail-closed while the Cloud Run sandbox trust boundary is redesigned.
+or ``production``. Production requires ``VERITY_ENV=cloud`` and complete authentication,
+and is currently fail-closed until the no-role Cloud Run boundary passes its live identity test.
 
 Individual backends can still be overridden one at a time (``VERITY_STORE_BACKEND`` and
 friends); an unset override means "whatever ``VERITY_ENV`` implies".
@@ -64,16 +64,30 @@ class Settings(BaseSettings):
     queue_concurrency: int = Field(default=1, ge=1, le=8)
 
     # --- cloud adapters ------------------------------------------------------
-    google_cloud_project: str | None = Field(default=None, validation_alias="GOOGLE_CLOUD_PROJECT")
+    google_cloud_project: str | None = Field(
+        default=None,
+        validation_alias="GOOGLE_CLOUD_PROJECT",
+        pattern=r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$",
+    )
     google_cloud_location: str = Field(
-        default="us-central1", validation_alias="GOOGLE_CLOUD_LOCATION"
+        default="us-central1",
+        validation_alias="GOOGLE_CLOUD_LOCATION",
+        pattern=r"^[a-z]+-[a-z0-9]+[0-9]$",
     )
     pubsub_topic: str = "verification-jobs"
-    cloud_run_sandbox_job: str = "verity-sandbox"
-    cloud_run_pipeline_job: str = "verity-pipeline"
+    cloud_run_sandbox_job: str = Field(
+        default="verity-sandbox", pattern=r"^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+    )
+    cloud_run_pipeline_job: str = Field(
+        default="verity-pipeline", pattern=r"^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+    )
 
     api_key: SecretStr | None = None
-    pubsub_verification_token: SecretStr | None = None
+    pubsub_oidc_audience: str | None = Field(default=None, pattern=r"^https://[^\s]+$")
+    pubsub_service_account: str | None = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]{4,28}[a-z0-9]\.iam\.gserviceaccount\.com$",
+    )
     github_token: SecretStr | None = None
     report_repo: str | None = None
 
@@ -117,16 +131,22 @@ class Settings(BaseSettings):
             errors.append("production requires the cloud_run sandbox backend")
         else:
             errors.append(
-                "production Cloud Run sandbox is disabled: the current task has outbound "
-                "network access and a project identity while executing untrusted code; use "
-                "the local Docker profile until a credential-free brokered handoff exists"
+                "production Cloud Run sandbox is disabled pending live proof: deploy only the "
+                "no-role sandbox task and require its stolen metadata token to be denied by "
+                "every sensitive project API before removing this guard"
             )
         if not self.google_cloud_project:
             errors.append("GOOGLE_CLOUD_PROJECT is required")
         if not self.api_key or len(self.api_key.get_secret_value()) < 24:
             errors.append("VERITY_API_KEY must contain at least 24 characters")
-        if not self.pubsub_verification_token:
-            errors.append("VERITY_PUBSUB_VERIFICATION_TOKEN is required")
+        if not self.pubsub_oidc_audience:
+            errors.append("VERITY_PUBSUB_OIDC_AUDIENCE is required")
+        if not self.pubsub_service_account:
+            errors.append("VERITY_PUBSUB_SERVICE_ACCOUNT is required")
+        elif self.google_cloud_project and not self.pubsub_service_account.endswith(
+            f"@{self.google_cloud_project}.iam.gserviceaccount.com"
+        ):
+            errors.append("VERITY_PUBSUB_SERVICE_ACCOUNT must belong to GOOGLE_CLOUD_PROJECT")
         if not self.github_token:
             errors.append("VERITY_GITHUB_TOKEN is required")
         if not self.report_repo:

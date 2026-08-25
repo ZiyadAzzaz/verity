@@ -7,9 +7,9 @@ phase inside a throwaway container whose only writable mount is one fresh temp d
 Three backends implement :class:`verity.interfaces.SandboxBackend`:
 
 * :class:`DockerSandboxBackend` — local default. ``docker run --rm`` per phase.
-* :class:`CloudRunJobBackend` — experimental Cloud Run Job scheduler. It is not equivalent
-  to the local Docker boundary while the task has network access and a Google service
-  identity, so production configuration currently refuses it.
+* :class:`CloudRunJobBackend` — experimental Cloud Run Job scheduler. Its task has a no-role
+  identity and exchanges bounded request/result envelopes through execution overrides and
+  platform-collected logs; cloud network isolation still needs live validation.
 * :class:`LocalSandboxBackend` — raw host subprocesses. **Not an isolation boundary.** It
   exists because it is what runs *inside* the sandbox container image, where the container
   is the boundary; selecting it as the top-level backend requires an explicit opt-in.
@@ -32,7 +32,12 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import urlsplit, urlunsplit
 
+from verity.cloud_handoff import (
+    CloudLoggingResultReader,
+    encode_request_args,
+)
 from verity.interfaces import SandboxBackend, SandboxUnavailableError
 from verity.models import (
     EnvironmentResult,
@@ -68,6 +73,37 @@ class SandboxStore(Protocol):
     async def get_sandbox_run(self, run_id: str) -> SandboxRun | None: ...
 
     async def complete_sandbox_run(self, run_id: str, result: EnvironmentResult) -> None: ...
+
+
+class SandboxResultReader(Protocol):
+    def read(
+        self,
+        *,
+        execution_name: str,
+        run_id: str,
+        timeout_seconds: float = 60,
+    ) -> EnvironmentResult: ...
+
+
+def _credential_free_claim(
+    parsed_claim: ParsedClaim,
+    allowed_repo_hosts: tuple[str, ...],
+) -> ParsedClaim:
+    """Remove URL query data that is unnecessary inside the sandbox execution context."""
+
+    source = urlsplit(str(parsed_claim.source_url))
+    source_url = urlunsplit((source.scheme, source.netloc, source.path, "", ""))
+    repository_url = parsed_claim.execution.repository_url
+    clean_repository = (
+        validate_repository_url(str(repository_url), allowed_repo_hosts)
+        if repository_url is not None
+        else None
+    )
+    document = parsed_claim.model_dump(mode="json")
+    execution = dict(document["execution"])
+    execution["repository_url"] = clean_repository
+    document.update(source_url=source_url, execution=execution)
+    return ParsedClaim.model_validate(document)
 
 
 def apply_patch_operations(repo: Path, patches: list[PatchOperation]) -> None:
@@ -1016,13 +1052,12 @@ class LocalSandboxBackend(SandboxBackend):
 
 
 class CloudRunJobBackend(SandboxBackend):
-    """Launch an experimental Cloud Run Job task and read its stored result.
+    """Launch a no-role Cloud Run Job and recover its platform-collected result log.
 
-    This adapter is useful for development of the cloud handoff, but is intentionally
-    blocked by production configuration. The current sandbox task needs Firestore access
-    to read and write its request while arbitrary repository code in the same task can
-    reach the metadata service. A credential-free broker must replace that design before
-    this can be treated as a production isolation boundary.
+    The trusted pipeline persists the audit record.  The sandbox receives only the public
+    execution request as bounded command arguments and never accesses Firestore or another
+    application service.  Cloud Run captures stdout independently of the task's IAM roles;
+    the trusted pipeline reads the exact execution's result envelope after it completes.
     """
 
     def __init__(
@@ -1033,12 +1068,18 @@ class CloudRunJobBackend(SandboxBackend):
         job_name: str,
         store: SandboxStore,
         timeout_seconds: int = 900,
+        result_reader: SandboxResultReader | None = None,
+        result_log_timeout_seconds: float = 60,
+        allowed_repo_hosts: tuple[str, ...] = ("github.com",),
     ) -> None:
         self._project = project
         self._location = location
         self._job_name = job_name
         self._store = store
         self._timeout = timeout_seconds
+        self._result_reader = result_reader
+        self._result_log_timeout = result_log_timeout_seconds
+        self._allowed_repo_hosts = allowed_repo_hosts
 
     async def run(
         self,
@@ -1056,19 +1097,20 @@ class CloudRunJobBackend(SandboxBackend):
             sandbox_request = SandboxRequest(
                 run_id=run_id,
                 job_id=job_id,
-                parsed_claim=parsed_claim,
+                parsed_claim=_credential_free_claim(parsed_claim, self._allowed_repo_hosts),
                 patches=patches,
                 command_override=command_override,
                 timeout_seconds=self._timeout,
             )
             await self._store.create_sandbox_run(SandboxRun(request=sandbox_request))
             request_persisted = True
+            request_args = encode_request_args(sandbox_request)
             client = run_v2.JobsClient()
             name = client.job_path(self._project, self._location, self._job_name)
             override = run_v2.RunJobRequest.Overrides(
                 container_overrides=[
                     run_v2.RunJobRequest.Overrides.ContainerOverride(
-                        env=[run_v2.EnvVar(name="VERITY_SANDBOX_RUN_ID", value=run_id)]
+                        args=request_args,
                     )
                 ],
                 task_count=1,
@@ -1079,7 +1121,23 @@ class CloudRunJobBackend(SandboxBackend):
                 request=run_v2.RunJobRequest(name=name, overrides=override),
             )
             execution = await asyncio.to_thread(operation.result, timeout=self._timeout + 120)
-            completed = await self._store.get_sandbox_run(run_id)
+            execution_name = getattr(execution, "name", None)
+            if not isinstance(execution_name, str) or not execution_name:
+                raise RuntimeError("Cloud Run returned no execution name")
+            reader = self._result_reader or CloudLoggingResultReader(
+                project=self._project,
+                location=self._location,
+                job_name=self._job_name,
+            )
+            result = await asyncio.to_thread(
+                reader.read,
+                execution_name=execution_name,
+                run_id=run_id,
+                timeout_seconds=self._result_log_timeout,
+            )
+            result = result.model_copy(update={"sandbox_execution": execution_name})
+            await self._store.complete_sandbox_run(run_id, result)
+            return result
         except Exception as exc:
             failure = EnvironmentResult(
                 succeeded=False,
@@ -1096,17 +1154,6 @@ class CloudRunJobBackend(SandboxBackend):
                         extra={"run_id": run_id},
                     )
             return failure
-        if completed is None or completed.result is None:
-            return EnvironmentResult(
-                succeeded=False,
-                phase="infrastructure",
-                stderr="Cloud Run Job completed without a sandbox result record.",
-                duration_seconds=time.monotonic() - started,
-                sandbox_execution=getattr(execution, "name", None),
-            )
-        return completed.result.model_copy(
-            update={"sandbox_execution": getattr(execution, "name", None)}
-        )
 
 
 class EnvironmentAgent:

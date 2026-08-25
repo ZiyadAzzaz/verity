@@ -1,0 +1,20 @@
+substitutions:
+  _REGION: us-central1
+  _REPOSITORY: verity
+  _TAG: security-probe
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile.sandbox
+      - -t
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/verity-sandbox:${_TAG}"
+      - .
+
+images:
+  - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/verity-sandbox:${_TAG}"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

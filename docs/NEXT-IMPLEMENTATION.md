@@ -2,6 +2,13 @@
 
 **Prepared:** 2026-08-24
 
+> **Hackathon scope update — 2026-08-25:** The full broker/lease/provenance program below remains
+> the production roadmap, but it is no longer the pre-deployment hackathon plan. The scoped
+> credential-free request/log-result handoff, zero-role identity policy, metadata-token denial
+> probe, and Pub/Sub OIDC validation are implemented in
+> [SCOPED-CLOUD-SECURITY-FIX.md](SCOPED-CLOUD-SECURITY-FIX.md). Deployment remains fail-closed
+> until that probe passes in the owner's real project.
+
 This is the implementation plan after the deep audit. It deliberately does not remove either
 production guard. The order matters: evidence integrity and crash recovery are local correctness
 requirements; the cloud broker and network split are deployment security requirements.

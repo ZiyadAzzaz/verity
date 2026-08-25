@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import logging
 from collections.abc import AsyncIterator
@@ -9,13 +10,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse, JSONResponse
 
 from verity.config import Settings, get_settings
 from verity.container import Container, build_container
 from verity.messaging import decode_push_envelope
 from verity.models import JobView, SubmitRequest, SubmitResponse
+from verity.oidc import OidcVerificationUnavailable, verify_pubsub_oidc
 from verity.security import UnsafeUrlError
 from verity.telemetry import configure_telemetry
 
@@ -141,17 +143,24 @@ def create_app(
     @api.post("/internal/pubsub", status_code=status.HTTP_204_NO_CONTENT)
     async def consume_pubsub(
         envelope: dict[str, object],
-        token: Annotated[str | None, Query()] = None,
+        authorization: Annotated[str | None, Header()] = None,
     ) -> Response:
-        expected = (
-            settings.pubsub_verification_token.get_secret_value()
-            if settings.pubsub_verification_token
-            else None
-        )
-        if expected is not None and (token is None or not hmac.compare_digest(expected, token)):
-            raise HTTPException(status_code=401, detail="invalid Pub/Sub verification token")
-        if settings.environment == "production" and expected is None:
-            raise HTTPException(status_code=503, detail="Pub/Sub verification is not configured")
+        audience = settings.pubsub_oidc_audience
+        service_account = settings.pubsub_service_account
+        if audience and service_account:
+            try:
+                await asyncio.to_thread(
+                    verify_pubsub_oidc,
+                    authorization,
+                    audience=audience,
+                    service_account_email=service_account,
+                )
+            except OidcVerificationUnavailable as exc:
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
+            except (ValueError, TypeError) as exc:
+                raise HTTPException(status_code=401, detail=str(exc)) from exc
+        elif settings.environment == "production":
+            raise HTTPException(status_code=503, detail="Pub/Sub OIDC is not configured")
         job_id, _message_id = decode_push_envelope(envelope)
         await container.launcher.launch(job_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,9 +1,10 @@
 # Verity architecture
 
-Verity's local infrastructure is implemented and exercised. A cloud adapter set also exists,
-but the 2026-08-24 audit found that its sandbox trust boundary is not production-safe; cloud
-production and deployment are therefore fail-closed. `VERITY_ENV` still selects adapters in
-one place, but the two profiles must not be described as equally proven or equally isolated.
+Verity's local infrastructure is implemented and exercised. The cloud adapter now has a
+credential-free request/log-result handoff, a no-role sandbox identity policy, and a mandatory
+metadata-token denial probe. Those controls are locally tested but have not run in the owner's
+Google Cloud project, so cloud production and deployment remain fail-closed. `VERITY_ENV` still
+selects adapters in one place, but the two profiles are not yet equally proven.
 
 | Seam | Interface | `VERITY_ENV=local` | `VERITY_ENV=cloud` |
 |---|---|---|---|
@@ -37,19 +38,21 @@ flowchart TD
     S -->|poll status + trace| A
 ```
 
-## Cloud pipeline — design target, not deployable production
+## Cloud pipeline — implemented, awaiting live security proof
 
 ```mermaid
 flowchart TD
     U[Browser / API client] -->|HTTPS + X-Verity-Key| A[FastAPI on Cloud Run]
     A -->|claim_key lookup| F[(Firestore jobs + claim_memory)]
     A -->|new job only| P[Pub/Sub: verification-jobs]
-    P -->|current blueprint: OIDC + URL token| W[Cloud Run intake]
+    P -->|verified Google OIDC| W[Cloud Run intake]
     W -->|launch + immediate ack| PJ[Fresh Cloud Run pipeline job]
     PJ --> PA[1. Parser Agent<br/>Gemini via Vertex AI]
     PA --> EA[2. Environment Agent]
-    EA -->|fresh task per attempt| J[Experimental Cloud Run Job sandbox]
-    J -->|clone / install / eval| F
+    EA -->|bounded public request args| J[Cloud Run Job sandbox<br/>zero IAM bindings found]
+    J -->|platform-collected bounded stdout| L[Cloud Logging]
+    L -->|exact execution label| EA
+    EA -->|trusted audit write| F
     J -->|failure + trace + files| DA[3. Debug Agent<br/>max 3 proposals]
     DA -->|bounded patch bundle| EA
     J -->|success or terminal failure| RA[4. Reporter Agent]
@@ -58,10 +61,11 @@ flowchart TD
     F -->|poll status + trace| A
 ```
 
-The typed contracts and three-attempt state machine are shared. The trust boundaries are not:
-the current Cloud Run sandbox needs Firestore access while arbitrary repository code in the
-same task can reach the metadata service. A one-time broker and no-role sandbox identity must
-replace that handoff before this diagram describes an approved deployment.
+The typed contracts and three-attempt state machine are shared. The cloud sandbox does not import
+a Google Cloud client, receive application secrets, or access Firestore. The trusted pipeline
+persists both sides of the handoff. Deployment remains blocked until a real task obtains its
+metadata token and proves that Firestore, Secret Manager, Pub/Sub, Cloud Run, Vertex AI, and Cloud
+Storage all deny it. See [SCOPED-CLOUD-SECURITY-FIX.md](SCOPED-CLOUD-SECURITY-FIX.md).
 
 ## The sandbox
 
@@ -84,9 +88,11 @@ is why the mount is read-write rather than read-only.
 
 `docker info` is checked before any verification job starts; a stopped daemon is reported
 as a setup error rather than handed to the Debug Agent as something to patch. A fresh Cloud
-Run task gives filesystem/process isolation between jobs, but it does not reproduce the local
-phase-specific network policy or remove service-account credentials. It is not merely a safe
-scheduler swap.
+Run task gives filesystem/process isolation between jobs and now uses a dedicated identity with
+no project or discovered resource-level binding. It still does not reproduce the local
+phase-specific network policy. A
+no-role identity limits Google Cloud credential impact; it does not make arbitrary networked code
+universally safe.
 
 Isolation is not asserted, it is tested. [`tests/test_docker_sandbox.py`](../tests/test_docker_sandbox.py)
 and [`scripts/validate_docker_isolation.py`](../scripts/validate_docker_isolation.py) start
@@ -98,8 +104,12 @@ must fail.
 
 - Intake accepts HTTPS only, rejects credential-bearing URLs, resolves every redirect
   target, and blocks private, loopback, reserved, and metadata IP addresses.
-- Production currently refuses the Cloud Run sandbox even when all cloud settings and secrets
-  are present. `scripts/deploy.ps1` also stops before its first `gcloud` mutation.
+- Production currently refuses the Cloud Run sandbox until its no-role identity and API denials
+  are observed live. `scripts/deploy.ps1` also stops before its first `gcloud` mutation.
+- The sandbox request is bounded public-source data passed as execution arguments. The result is
+  a bounded, run-ID-bound stdout envelope; only the trusted pipeline reads logs and Firestore.
+- Pub/Sub verifies Google's token signature, issuer, configured audience, verified email claim,
+  and exact push-service-account identity. No callback secret appears in the URL.
 - Evaluation commands never run through a shell and are limited to Python/pip/pytest argv.
 - Model patches are path-confined, size-bounded, exact-match edits. They cannot contain
   path traversal or modify anything outside the cloned repository.
@@ -120,7 +130,7 @@ documents in four SQLite tables locally.
 | `jobs/{job_id}` | Current status, typed claim, terminal verdict |
 | `jobs/{job_id}/trace/*` | Ordered agent transitions, errors, patches, outcomes |
 | `claim_memory/{sha256(canonical_url)}` | Atomic dedup pointer and cached verdict |
-| `sandbox_runs/{run_id}` | Sandbox request/result handoff |
+| `sandbox_runs/{run_id}` | Trusted audit record of the sandbox request/result |
 
 Reservation is transactional in both: `create_or_get` and `claim_job` use Firestore
 transactions in the cloud and `BEGIN IMMEDIATE` locally, so two concurrent submissions of
@@ -139,11 +149,10 @@ job id is rejected by `claim_job`, not re-executed.
 - Clone and install need bridge networking. Untrusted Python build hooks can therefore reach
   services visible from that network even though evaluation itself has no network.
 
-## Cloud redesign requirements
+## Remaining cloud requirements
 
-- Broker sandbox requests/results through single-use capabilities; grant the sandbox no
-  Firestore or other project role.
-- Validate Pub/Sub OIDC at a dedicated worker boundary and remove secrets from URLs.
+- Run the mandatory stolen-metadata-token denial probe in the owner's real project and repeat it
+  after IAM changes. The sandbox must retain zero effective access to sensitive Google APIs.
 - Separate networked acquisition/build from offline evaluation or enforce equivalent egress
   controls, including metadata/private-address denial.
 - Add job leases/recovery, payload offloading beyond Firestore's document limit, immutable

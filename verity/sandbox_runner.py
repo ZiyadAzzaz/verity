@@ -3,39 +3,30 @@
 from __future__ import annotations
 
 import asyncio
-import os
+import sys
 import time
 
 from verity.agents.environment import LocalSandboxBackend
+from verity.cloud_handoff import decode_request_args, encode_result_line
+from verity.identity_probe import encode_identity_report, run_identity_probe
 from verity.models import EnvironmentResult
-from verity.store import FirestoreJobStore
 
 
-async def run_once() -> int:
-    run_id = os.environ.get("VERITY_SANDBOX_RUN_ID")
-    if not run_id:
-        raise RuntimeError("VERITY_SANDBOX_RUN_ID is required")
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT")
-    if not project:
-        raise RuntimeError("GOOGLE_CLOUD_PROJECT is required")
-    # The sandbox image intentionally omits the application's configuration and ADK stack.
-    # Its handoff is always Firestore; selecting a default local profile here previously
-    # opened SQLite and made every Cloud Run sandbox request appear missing.
-    store = FirestoreJobStore(project)
-    run = await store.get_sandbox_run(run_id)
-    if run is None:
-        raise RuntimeError(f"sandbox request {run_id} was not found")
+async def run_once(arguments: list[str]) -> str:
+    """Execute one public-source request without loading credentials or cloud clients."""
+
+    request = decode_request_args(arguments)
     backend = LocalSandboxBackend(
-        timeout_seconds=run.request.timeout_seconds,
-        max_output_chars=int(os.environ.get("VERITY_MAX_OUTPUT_CHARS", "100000")),
+        timeout_seconds=request.timeout_seconds,
+        max_output_chars=100_000,
     )
     started = time.monotonic()
     try:
         result = await backend.run(
-            run.request.job_id,
-            run.request.parsed_claim,
-            run.request.patches,
-            run.request.command_override,
+            request.job_id,
+            request.parsed_claim,
+            request.patches,
+            request.command_override,
         )
     except Exception as exc:
         result = EnvironmentResult(
@@ -44,14 +35,19 @@ async def run_once() -> int:
             stderr=f"{type(exc).__name__}: {exc}",
             duration_seconds=time.monotonic() - started,
         )
-    await store.complete_sandbox_run(run_id, result)
-    # Evaluation failure is a valid data result consumed by the Debug Agent. The
-    # Cloud Run task itself succeeds once that result is durably written.
-    return 0
+    return encode_result_line(request.run_id, result)
 
 
 def main() -> None:
-    raise SystemExit(asyncio.run(run_once()))
+    if len(sys.argv) == 3 and sys.argv[1] == "--verify-identity":
+        project, separator, region = sys.argv[2].partition(":")
+        if not separator or not project or not region:
+            raise RuntimeError("identity probe requires PROJECT:REGION")
+        print(encode_identity_report(run_identity_probe(project, region)), flush=True)
+        return
+    # The result is one bounded line. Cloud Run collects stdout without the sandbox identity
+    # needing logging permissions; the trusted pipeline later reads it by execution label.
+    print(asyncio.run(run_once(sys.argv[1:])), flush=True)
 
 
 if __name__ == "__main__":

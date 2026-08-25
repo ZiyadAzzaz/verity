@@ -1,10 +1,10 @@
 # Verity — Current State and Next Steps
 
-**Audited:** 2026-08-24
+**Audited:** 2026-08-24; scoped cloud-security implementation updated 2026-08-25
 
-**Remote base:** `main` at `743249397d15989d219b37d0504b8dcd904ea6fb` (32 commits)
+**Audit implementation:** `696cdfd3989633e80e7fd0b98c6e21794cabcd1d`
 
-**Working tree:** contains the uncommitted audit fixes described below
+**Security report:** `01b73df9b1957b0c8f9364424a0bbf3fa612a89a`
 
 **Code:** https://github.com/ZiyadAzzaz/verity (public)
 
@@ -16,13 +16,17 @@ are historical snapshots and retain their original evidence, dates, and test cou
 ## Bottom line
 
 The local product is a credible, working MVP with unusually strong evidence around its Docker
-boundary, bounded debug loop, durable cache, and honest empty-result behavior. It is not yet a
-finished hackathon submission because the required Google Cloud path has never run and, more
-importantly, the audited Cloud Run sandbox design is not safe to deploy with untrusted code.
+boundary, bounded debug loop, durable cache, and honest empty-result behavior. The audited cloud
+credential flaw now has a scoped implementation: the sandbox receives bounded request arguments,
+returns a bounded platform-collected log envelope, imports no cloud client, and is assigned a
+service account with zero project or discovered resource-level IAM bindings. Pub/Sub now validates
+Google OIDC instead of a
+URL secret.
 
-Production is now fail-closed: configuration rejects the cloud sandbox and
-`scripts/deploy.ps1` throws before the first `gcloud` mutation. This replaces the previous,
-incorrect statement that credits were the only blocker.
+It is not yet a finished hackathon submission because the required Google Cloud path has never
+run. Production remains fail-closed until a real sandbox task steals its metadata token and proves
+that all sensitive project APIs deny it. See
+[SCOPED-CLOUD-SECURITY-FIX.md](SCOPED-CLOUD-SECURITY-FIX.md).
 
 ## Verified evidence
 
@@ -32,8 +36,8 @@ incorrect statement that credits were the only blocker.
 | Local/remote base | local `main` and public `origin/main` both resolve to `7432493` |
 | Python environment | `agent-dev`, Python 3.11.15; exact locked package set; `pip check` clean |
 | Static gates | Ruff check, Ruff format check, and strict mypy pass after the audit changes |
-| Full non-Docker selection | **212 collected, 9 Docker tests deselected** |
-| Full Docker-inclusive suite | **221 passed**, 2 dependency deprecation warnings |
+| Full non-Docker selection | **262 passed, 9 Docker tests deselected**, 2 upstream deprecation warnings |
+| Full Docker-inclusive suite | **271 passed** total (262 non-Docker + 9 real-Docker tests) |
 | Real isolation probe | 8/8 attacks blocked: host files, rootfs write, eval network, privilege, Docker socket, PID cap; install network and workspace write behave as designed |
 | Immutable revision smoke | a real public GitHub commit was fetched by full SHA, checked out detached in Docker, evaluated, and recorded without drift |
 | Local HTTP smoke | `/`, `/architecture`, `/healthz`, submission, cache lookup, verdict, and trace paths returned correctly against a writable copy of the demo DB |
@@ -45,6 +49,22 @@ The in-app Browser had no attached tab/surface during this audit. HTTP behavior 
 assets were checked, but a fresh interactive click/render pass is still a human-assisted step.
 
 ## Live catalogue: what actually happened
+
+The 2026-08-25 scoped-fix regression produced new evidence:
+
+- Whisper completed in a fresh database as `could_not_verify`, asserted no observed number, used
+  exactly three bounded attempts, and recorded the malformed/unsafe second proposal as
+  `attempt_rejected`. Its trace has 14 events, and dedup returned immediately without execution.
+- A final fresh eight-source run completed the ResNet source as `could_not_verify`, with no
+  observed number, three attempts, and 13 trace events.
+- Source 2 then hit the configured AI Studio account's explicit `gemini-3.5-flash` free-tier limit
+  of 20 requests. The run was stopped during parsing so later sources would not be mislabeled as
+  claim failures. The full eight-source rerun therefore remains incomplete.
+
+Exact scoped-fix evidence is in
+[SCOPED-SECURITY-VALIDATION-2026-08-25.md](SCOPED-SECURITY-VALIDATION-2026-08-25.md).
+
+The following is the preserved historical pre-fix catalogue baseline.
 
 The preserved `E:\wsl\verity-gate4.db` contains 11 job records. Seven catalogue sources have
 completed verdicts:
@@ -59,11 +79,12 @@ completed verdicts:
 | NVIDIA H100 page | `could_not_verify` |
 | Gemini 3.5 Flash page | `could_not_verify` |
 
-The eighth catalogue source, Whisper, is `failed` with no verdict because Gemini proposed the
+The eighth historical catalogue source, Whisper, is `failed` with no verdict because Gemini proposed the
 unsafe path `../venv/pip.conf`; Pydantic correctly rejected it, but that historical run predates
 the pipeline behavior that counts a rejected proposal as one bounded attempt. Therefore the
 old claim “full 8-source gate completed” was false. The rejection path is covered by tests, but
-Whisper and the full live catalogue have not been rerun.
+the rejection path has now been rerun successfully for Whisper; only the complete eight-source
+rerun remains blocked by external quota.
 
 ## Verdict taxonomy
 
@@ -114,25 +135,27 @@ older code and should not be cited as a sound contradiction.
 
 ## Release blockers
 
-### P0 — cloud trust boundary
+### P0 — live proof of the scoped cloud trust boundary
 
-The current Cloud Run sandbox reads its request/result from Firestore using a service account
-and runs arbitrary repository install/evaluation code in that same task. The task has outbound
-networking, so code can query the metadata server and use project credentials. The local
-Docker boundary does not have this defect.
+The Firestore-capable sandbox design has been replaced locally. The trusted pipeline now passes
+bounded public request arguments, reads a bounded result from the exact execution's Cloud Logging
+records, and alone persists Firestore state. The sandbox image contains no Google Cloud client or
+application secret. The deployment blueprint removes the legacy Firestore role, fails on any
+remaining project binding, searches project-scoped resource policies with Cloud Asset Inventory,
+clears ambient job capabilities, and runs a metadata-token abuse probe before deploying the
+privileged app.
 
-Required design before deployment:
+Required evidence before removing either production guard:
 
-1. Move request/result access behind a one-time broker; the sandbox gets no Firestore role.
-2. Run the sandbox under a dedicated no-role service identity and ensure no secrets reach its
-   environment, filesystem, argv, or metadata-accessible identity.
-3. Separate dependency acquisition from offline evaluation or enforce tested egress controls.
-4. Validate Pub/Sub's OIDC identity at a non-public worker boundary; remove the secret from the
-   query string.
-5. Add Vertex IAM, source and image-digest pinning, per-job leases/recovery, and time budgets
-   with overhead beyond four 900-second executions.
-6. Build both cloud images in CI and run emulator/mocked control-plane tests plus a real staging
-   isolation suite before removing either production guard.
+1. Run `scripts/deploy_sandbox_probe.ps1` to deploy only the sandbox job under
+   `verity-sandbox@PROJECT.iam.gserviceaccount.com`.
+2. Confirm its job definition contains exactly one container with the expected image, default
+   entrypoint, and identity, and no declared environment, secret, volume, or VPC attachment.
+3. Obtain its metadata token and require explicit denial of a Firestore write, Secret Manager
+   read, Pub/Sub publish, Cloud Run execution, Vertex AI listing, and Cloud Storage listing.
+4. Review inherited IAM and ensure the project exposes no sensitive private network to the task.
+5. Preserve the honest residual-risk statement: no-role IAM closes credential blast radius but
+   does not provide offline evaluation, malicious-code attestation, or kernel-exploit immunity.
 
 ### P0 — live cloud proof
 
@@ -172,15 +195,18 @@ general provenance enforcement is still required.
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 
-1. Commit and push the audit patch after review.
-2. Rerun Whisper, then the full eight-source local catalogue, into a fresh writable database.
-3. Add observed provenance and make every verdict depend on both scalar and condition matching.
-4. Implement the credential-free cloud broker/no-role sandbox and OIDC worker split.
-5. Install/authenticate the Cloud SDK and Agents CLI only after the secure design and tests are
-   green; deploy to a staging project with a hard operational budget procedure.
+1. Local static, unit, Docker, image, and isolation gates are complete.
+2. After the configured AI Studio quota resets (or the owner installs another local key), rerun
+   the full eight-source catalogue into a fresh writable database. Whisper is already complete.
+3. Obtain the project ID and billing confirmation; authenticate Cloud SDK locally.
+4. Deploy only the no-role sandbox and require the metadata-token denial probe to pass.
+5. Review the live evidence, then remove the two fail-closed guards as a separate change and
+   authenticate Agents CLI and deploy staging with a hard operational budget procedure.
 6. Run one unseen source through the real deployed path, confirm Firestore/Pub/Sub/Trace/Logging
    evidence and an autonomously filed Issue, then run all deployed catalogue URLs plus dedup.
-7. Attach an in-app Browser tab for final interactive UI, architecture-page, and screenshot QA.
+7. Add broader provenance, recovery leases/outbox, image-digest pinning, and stronger egress after
+   the hackathon submission unless a live test exposes an earlier need.
+8. Attach an in-app Browser tab for final interactive UI, architecture-page, and screenshot QA.
 
 ## Inputs needed from the project owner
 
@@ -188,10 +214,14 @@ Nothing is needed to finish local code/test work. Later, do not paste credential
 instead:
 
 - attach/open the in-app Browser when you want the visual interaction pass;
-- after the cloud boundary is redesigned, provide the Google Cloud project ID, confirm the
-  hackathon credits/billing account are active, and authenticate `gcloud`/Agents CLI locally;
+- provide the Google Cloud project ID, confirm the hackathon credits/billing account are active,
+  and authenticate `gcloud` locally so the mandatory identity test can run; Agents CLI is needed
+  only after the proof is reviewed and staging deployment is approved;
+- allow the configured AI Studio quota to reset or replace the key locally in `.env` so the final
+  eight-source catalogue can run; never paste the key into chat;
 - explicitly approve any external GitHub mutation if you want the historical issues updated,
   closed, or refiled.
 
-Until the P0 items are cleared, describe Verity as a **locally proven, cloud-designed MVP**, not
-as deployed or submission-complete.
+Until the P0 live evidence is captured, describe Verity as a **locally proven MVP with an
+implemented but not yet cloud-validated security boundary**, not as deployed or
+submission-complete.

@@ -45,6 +45,8 @@ genuine result returns instantly without a single model call.
 |---|---|
 | [docs/STATE.md](docs/STATE.md) | **Start here** — full state, what is missing, next steps |
 | [docs/SECURITY-QUALITY-REPORT.md](docs/SECURITY-QUALITY-REPORT.md) | Professional findings, remediations, validation evidence, and residual-risk report |
+| [docs/SCOPED-CLOUD-SECURITY-FIX.md](docs/SCOPED-CLOUD-SECURITY-FIX.md) | Credential-free Cloud Run handoff, no-role identity gate, OIDC fix, and residual risks |
+| [docs/SCOPED-SECURITY-VALIDATION-2026-08-25.md](docs/SCOPED-SECURITY-VALIDATION-2026-08-25.md) | Exact local gates, live rerun evidence, quota blocker, and cloud acceptance status |
 | [docs/AUDIT-2026-08-24.md](docs/AUDIT-2026-08-24.md) | Deep code, runtime, security, deployment, and artifact audit |
 | [docs/NEXT-IMPLEMENTATION.md](docs/NEXT-IMPLEMENTATION.md) | Exact evidence, recovery, secure-cloud, and staging gates |
 | [docs/REVIEW.md](docs/REVIEW.md) | Historical 2026-08-23 review |
@@ -94,10 +96,11 @@ Stated plainly, because a verification tool that oversells itself is self-defeat
 - **The parser may extract a different claim on different runs** when a source contains
   several. Each extraction is grounded in a verbatim quote, but they are not identical
   between runs.
-- **The cloud profile is experimental and production is fail-closed.** The current Cloud Run
-  sandbox combines outbound network access, untrusted code, and a project identity. Until the
-  handoff is credential-free and cloud isolation is tested, `Settings` rejects production and
-  `scripts/deploy.ps1` stops before changing any resource.
+- **The cloud profile is experimental and production is fail-closed.** The request/result handoff
+  is now credential-free and the sandbox identity is designed to have no roles, but Cloud Run still
+  combines outbound network access with untrusted code. Until the deployed identity passes the
+  stolen-token denial probe, `Settings` rejects production and `scripts/deploy.ps1` stops before
+  changing any resource.
 - **Environment provenance is incomplete.** Timing/throughput/resource metrics now return
   `conditions_not_comparable`, but dataset, checkpoint, revision, hardware, and dependency
   equivalence are not yet recorded strongly enough for universal reproducibility claims.
@@ -204,18 +207,26 @@ python scripts/validate_deployed.py 'https://YOUR-SERVICE.run.app' --timeout 360
 
 ## Google Cloud status
 
-**Do not deploy the current cloud profile.** The adapters exist, but the 2026-08-24 audit found
-that the sandbox task must read Firestore using a service account while it executes arbitrary
-repository code with outbound networking. That code could request the task's metadata-server
-credentials. The old deployment script also had IAM, secret-newline, native-command failure,
-Pub/Sub-token, timeout, and telemetry defects. Production now fails closed before provisioning.
+**Cloud deployment remains paused for a live security gate, not for missing implementation.**
+The sandbox no longer reads or writes Firestore. A bounded public request is passed through Cloud
+Run execution arguments, Cloud Run collects one bounded stdout result, and only the trusted
+pipeline reads that execution's logs and persists the result. The sandbox image has no Google
+Cloud client; its job definition clears environment, secret, volume, and VPC attachments; and its
+dedicated service account must have no project or discovered resource-level IAM binding.
 
-The required next design is a credential-free sandbox task using a one-time brokered
-request/result handoff, a no-role service identity, controlled egress, OIDC validation for the
-internal worker endpoint, source/image pinning, and cloud-specific isolation/integration
-tests. Only after those tests pass should the deployment guard be removed. At that point a
-project ID, confirmed hackathon billing credits, authenticated `gcloud`, and Agents CLI login
-will be required from the operator. See [the audit](docs/AUDIT-2026-08-24.md).
+Before the privileged app is deployed, the blueprint deliberately steals the sandbox metadata
+token and requires explicit denial of a Firestore write, Secret Manager read, Pub/Sub publish,
+Cloud Run execution, Vertex AI listing, and Cloud Storage listing. The sandbox-only proof can be
+run without opening the production guards:
+
+```powershell
+powershell -File scripts/deploy_sandbox_probe.ps1 -ProjectId YOUR_PROJECT_ID -Region us-central1
+```
+
+Pub/Sub now uses verified Google OIDC rather than a query-string secret. The two fail-closed guards
+remain until that evidence is produced in the owner's project. See the
+[scoped security fix](docs/SCOPED-CLOUD-SECURITY-FIX.md) and
+[full audit](docs/AUDIT-2026-08-24.md).
 
 ## Reproducibility
 
@@ -234,7 +245,7 @@ will be required from the operator. See [the audit](docs/AUDIT-2026-08-24.md).
 ```text
 POST /api/jobs                 {"url":"https://..."} -> 202 + job_id
 GET  /api/jobs/{job_id}        -> current job, verdict, full trace
-POST /internal/pubsub          Pub/Sub push consumer (separate secret)
+POST /internal/pubsub          Pub/Sub push consumer (verified Google OIDC)
 GET  /healthz                  liveness
 ```
 

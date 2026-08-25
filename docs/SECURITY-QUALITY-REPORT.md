@@ -8,6 +8,12 @@
 
 **Audit baseline:** `696cdfd3989633e80e7fd0b98c6e21794cabcd1d`
 
+> **Update — 2026-08-25:** The scoped credential-free Cloud Run handoff, no-role sandbox policy,
+> metadata-token denial probe, and Pub/Sub OIDC correction described in
+> [SCOPED-CLOUD-SECURITY-FIX.md](SCOPED-CLOUD-SECURITY-FIX.md) are now implemented locally. The
+> historical findings below remain the reason for the change. Cloud status remains blocked until
+> the new acceptance probe passes in the owner's real project.
+
 ## Executive summary
 
 Verity accepts a public AI/ML claim, extracts a structured benchmark claim, executes the
@@ -26,10 +32,10 @@ atomic.
 
 The audit also found a critical cloud trust-boundary flaw: the proposed Cloud Run sandbox could
 execute untrusted repository code while holding a project identity capable of accessing
-Firestore and while retaining outbound network access. That design is **not considered safe for
-production**. Cloud deployment is therefore intentionally blocked by fail-closed configuration
-and deployment guards until the sandbox receives no privileged credentials and the revised
-boundary passes real isolation tests.
+Firestore and while retaining outbound network access. That design was **not considered safe for
+production**. The scoped credential-free/no-role replacement is implemented and locally tested;
+cloud deployment remains intentionally blocked until its policy and stolen-token denial evidence
+is captured in the owner's project.
 
 Current assessment:
 
@@ -97,9 +103,9 @@ on reading implementation code.
 
 | Finding | Risk | How it was detected | Resolution or containment | Status |
 |---|---|---|---|---|
-| Untrusted cloud code inherited a Firestore-capable service identity and outbound networking | Repository code could query the metadata service, obtain credentials, and access project resources | Followed the Cloud Run Job service account and Firestore handoff through configuration and deployment code | Production settings and deployment now fail closed; a credential-free/no-role sandbox boundary is required | **Blocked safely; redesign required** |
-| Pub/Sub authentication mixed OIDC with a secret in the callback URL, while the application did not validate the asserted OIDC identity | URL secrets can leak through logs and do not prove the caller identity | Compared Pub/Sub push configuration with the API authentication path | Remove URL secrets, verify issuer/audience/service-account identity, and separate the worker boundary | **Open before cloud deployment** |
-| Deployment script could continue after failed native commands and could mishandle secret and service-account output | A partial deployment could be reported as successful or use malformed configuration | Reviewed PowerShell native-command error behavior and variable capture | A fail-closed guard prevents unsafe deployment; checked command wrappers are still required | **Contained** |
+| Untrusted cloud code inherited a Firestore-capable service identity and outbound networking | Repository code could query the metadata service, obtain credentials, and access project resources | Followed the Cloud Run Job service account and Firestore handoff through configuration and deployment code | Credential-free request/log handoff; zero-binding policy checks; stripped sandbox dependencies; live stolen-token denial probe | **Implemented locally; live proof pending** |
+| Pub/Sub authentication mixed OIDC with a secret in the callback URL, while the application did not validate the asserted OIDC identity | URL secrets can leak through logs and do not prove the caller identity | Compared Pub/Sub push configuration with the API authentication path | Removed URL secret; verify Google signature, issuer, audience, verified email, and exact service account | **Remediated and tested locally** |
+| Deployment script could continue after failed native commands and could mishandle secret and service-account output | A partial deployment could be reported as successful or use malformed configuration | Reviewed PowerShell native-command error behavior and variable capture | Checked wrappers enforce every native exit code; secret bytes use exact UTF-8 temp files; guard remains fail-closed | **Remediated locally; live run pending** |
 | Four executions could consume the entire Cloud Run pipeline timeout | Parser, repair, persistence, and reporting could be terminated without a reliable final state | Compared per-attempt and total timeout budgets | Add a global job deadline and smaller per-attempt budget | **Open before cloud deployment** |
 
 ### High-impact correctness and security findings
@@ -156,8 +162,8 @@ must be evaluated against its own platform constraints.
 
 | Check | Result |
 |---|---|
-| Ordinary suite | 212 collected; 9 Docker tests deselected |
-| Docker-inclusive suite | **221 passed** |
+| Ordinary suite | **262 passed**; 9 Docker tests deselected |
+| Docker-inclusive suite | **271 passed** total |
 | Standalone isolation probes | **8 of 8 passed** |
 | Ruff lint and format checks | Passed |
 | MyPy analysis | Passed across application, scripts, and core package |
@@ -166,14 +172,15 @@ must be evaluated against its own platform constraints.
 | Local HTTP smoke | Health, pages, five submissions, verdicts, and traces returned successfully |
 | Container cleanup | No audit containers remained after testing |
 
-The full evidence inventory and historical caveats are recorded in
-[AUDIT-2026-08-24.md](AUDIT-2026-08-24.md).
+The baseline evidence inventory is in [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md); the current
+scoped-fix run is in
+[SCOPED-SECURITY-VALIDATION-2026-08-25.md](SCOPED-SECURITY-VALIDATION-2026-08-25.md).
 
 ## Remaining known risks
 
 The following limitations are documented rather than hidden:
 
-- **Cloud identity boundary:** a no-project-role service account sharply reduces credential
+- **Cloud identity boundary:** a zero-binding service account sharply reduces credential
   impact, but it is not sufficient by itself to declare arbitrary untrusted execution safe. The
   deployment must also prove that no inherited organization/folder permissions, invoker
   capabilities, secrets, sensitive environment data, or privileged result channel are reachable.
