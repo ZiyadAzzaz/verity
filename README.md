@@ -44,6 +44,7 @@ genuine result returns instantly without a single model call.
 | Document | Contents |
 |---|---|
 | [docs/STATE.md](docs/STATE.md) | **Start here** — full state, what is missing, next steps |
+| [docs/SECURITY-QUALITY-REPORT.md](docs/SECURITY-QUALITY-REPORT.md) | Professional findings, remediations, validation evidence, and residual-risk report |
 | [docs/AUDIT-2026-08-24.md](docs/AUDIT-2026-08-24.md) | Deep code, runtime, security, deployment, and artifact audit |
 | [docs/NEXT-IMPLEMENTATION.md](docs/NEXT-IMPLEMENTATION.md) | Exact evidence, recovery, secure-cloud, and staging gates |
 | [docs/REVIEW.md](docs/REVIEW.md) | Historical 2026-08-23 review |
