@@ -587,3 +587,53 @@ health rather than more client retries or IAM changes.
 
 Incremental cloud cost remains `$0.00`: the curl request did not reach the container, and Admin API
 reads/token issuance have no direct usage charge.
+
+## Owner-run Google Cloud Shell health continuation
+
+The owner ran the documented official proxy sequence from Google Cloud Shell in project
+`verity-506800`, region `us-central1`, and returned only safe HTTP evidence. The proxy started with
+PID 1172, waited five seconds, and exactly one request was sent to localhost `/healthz`.
+
+Observed at `2026-08-27T17:31:08Z`:
+
+```text
+HTTP/1.1 404 Not Found
+Content-Type: text/html; charset=UTF-8
+The requested URL /healthz was not found on this server.
+```
+
+The body was the same Google-front-end error page, not Verity JSON. A final read-only Cloud Run
+request-log query for `healthz` returned an empty list. This fifth result removes the local Windows
+network/client environment as a sufficient explanation. It does not authorize any continuation:
+push IAM, subscription, OIDC delivery, production jobs, GitHub Issues, and Phase 8 remain untouched.
+
+The Cloud Shell proxy is a user-session process, not a cloud project resource. The owner should run
+`kill "$proxy_pid"` or exit the shell so the registered EXIT trap stops it. It has no direct Google
+Cloud usage charge.
+
+### Recommended final private-health discriminator
+
+Google's
+[IAM service-account authentication documentation](https://cloud.google.com/iam/docs/service-account-permissions)
+provides a narrower role than Service Account Token Creator:
+`roles/iam.serviceAccountOpenIdTokenCreator` contains only
+`iam.serviceAccounts.getOpenIdToken`. The next technically distinct test should use the existing
+`verity-pubsub` identity because it is already intended to become a service-level Cloud Run
+Invoker during private Phase 7:
+
+1. Grant `verity-pubsub` Run Invoker only on service `verity`.
+2. Temporarily grant the operator OpenID Connect Identity Token Creator only on
+   `verity-pubsub`—never at project scope.
+3. Call IAM Credentials `generateIdToken` with audience equal to the canonical service URI.
+4. Keep the token out of arguments/output and send exactly one `/healthz` request.
+5. Remove the operator's temporary OIDC-token-creator binding in `finally` under every outcome.
+6. On failure, also remove the early push Run Invoker binding and stop. On success, retain that
+   already-planned push binding and continue the private Phase 7 OIDC gates.
+
+This requires new explicit authority because it changes two resource IAM policies, even though one
+binding is already planned and the other is temporary. It is preferable to project-level Token
+Creator, service-account keys, making the service public, or another identical human-token retry.
+
+Observed incremental cloud cost for the owner-run Cloud Shell check: `$0.00`. Professional
+assessment: the hard stop remains valid; the final diagnostic should be audience-bound and
+least-privilege, or the issue should be escalated to Google Cloud support without further retries.

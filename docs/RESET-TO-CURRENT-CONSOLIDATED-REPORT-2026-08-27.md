@@ -23,17 +23,18 @@ the decisive live security proof: all six sensitive APIs returned explicit 403 d
 zero-role sandbox identity. Least-privilege production identities, secret references, the private
 API, and the private pipeline were then created successfully.
 
-The deployment is currently stopped at the private `/healthz` gate. Four separately authorized
-client paths returned a Google-front-end 404 before reaching the container. The Cloud Run revision
+The deployment is currently stopped at the private `/healthz` gate. Five separately authorized
+client paths, including Google Cloud Shell, returned a Google-front-end 404 before reaching the container. The Cloud Run revision
 itself is Ready, its startup probe passed, Uvicorn started, the route exists in the immutable image,
 and Cloud Run's Admin API confirms open ingress, an enabled default URI, normal invoker IAM
 enforcement, and effective `run.routes.invoke` permission for the operator. The exact authenticated
 front-end failure is therefore unresolved. No speculative IAM change, blind retry, push
 subscription, OIDC delivery, or public exposure followed.
 
-The next useful check must run once from Google Cloud Shell to separate the local Windows/network
-environment from the service. Until actual Verity health JSON is returned, the remaining Phase 7
-gates and Phase 8 stay closed.
+The next useful check must stop reusing human-account tokens. The recommended bounded proof is one
+Google-signed, audience-bound token for the existing push identity, with only service-level invoker
+access and a temporary resource-level OIDC-token-creator grant to the operator. Until actual Verity
+health JSON is returned, the remaining Phase 7 gates and Phase 8 stay closed.
 
 ## Standing instructions preserved throughout
 
@@ -71,6 +72,7 @@ gates and Phase 8 stay closed.
 | 7 | Authorize one official `gcloud run services proxy` health request | Official proxy installed locally and started; the single request returned the same 404 |
 | 8 | Authorize one secure direct `curl.exe` health request | Token stayed in a cleaned temp config; request again returned the same 404 |
 | 9 | Produce one consolidated Markdown report through the current state | This document |
+| 10 | Run the official proxy from Google Cloud Shell and return only safe HTTP evidence | Cloud Shell independently returned the same unlogged Google-front-end 404 |
 
 ## Starting state reconstructed after the reset
 
@@ -247,7 +249,7 @@ Private pipeline:
 - Local tests exercise `/healthz` successfully.
 - Unauthenticated browser requests reach the Cloud Run service and produce logged 403 responses.
 
-### Four bounded attempts
+### Five bounded attempts
 
 | Attempt | Authorized client path | Result | Container request log |
 |---|---|---|---|
@@ -255,6 +257,7 @@ Private pipeline:
 | 2 | `Invoke-WebRequest` to deployment-returned URL | Google-front-end 404 | absent |
 | 3 | Official `gcloud run services proxy`, one localhost request | Google-front-end 404 | absent |
 | 4 | `curl.exe`, token held only in cleaned OS-temp config | Google-front-end 404 | absent |
+| 5 | Owner-run official proxy from Google Cloud Shell | Google-front-end 404 | absent |
 
 Each authorization permitted later Phase 7 work only if real healthy Verity JSON was returned.
 That condition never became true, so each attempt stopped without a downstream mutation.
@@ -293,7 +296,7 @@ incident without evidence.
 | Agents CLI discovers and copies project `.env` values | Critical secret-handling risk | Always run from isolated OS-temp directory with explicit secret references |
 | Agents CLI injects `--no-cpu-throttling` | Low cost-efficiency concern | Recorded; min instances 0 still permits scale-to-zero; revisit after health proof |
 | Local wrapper used unsupported `New-Item -LiteralPath` on this PowerShell | Local tooling defect | No cloud request occurred; corrected to `-Path` after local-only preflight |
-| Direct, proxy, and curl private health paths return unlogged GFE 404 | Current P0 blocker | Unresolved; next check must run once from Google Cloud Shell |
+| Direct, proxy, curl, and Cloud Shell health paths return unlogged GFE 404 | Current P0 blocker | Human-account path exhausted; next proof requires a separately authorized audience-bound service-account token |
 
 No secret was exposed and no security boundary was weakened to recover from any stop.
 
@@ -328,6 +331,7 @@ No billing/payment/budget/quota/plan setting was modified.
 | `344b74e` | Record direct private-health authentication diagnosis |
 | `832d63e` | Record official proxy health stop and correct the earlier hypothesis |
 | `b7b954c` | Record secure direct-curl health stop and Cloud Shell handoff |
+| `b95dd63` | Add the consolidated reset-to-current report |
 
 At the start of this report, the worktree was clean and local `HEAD` matched `origin/main` at
 `b7b954c75a7d0f2799c458123864abbd8e5267f9`.
@@ -358,17 +362,20 @@ At the start of this report, the worktree was clean and local `HEAD` matched `or
 
 ## What remains before Phase 8
 
-1. The owner runs one private health check from Google Cloud Shell and returns only the HTTP status
-   and response body/error:
+1. Obtain explicit owner approval for one narrowly scoped service-account OIDC health proof:
 
-   ```bash
-   gcloud config set project verity-506800
-   gcloud run services proxy verity --region=us-central1 --port=8080 >/tmp/verity-proxy.log 2>&1 &
-   proxy_pid=$!
-   trap 'kill "$proxy_pid" 2>/dev/null || true' EXIT
-   sleep 5
-   curl -i --max-time 120 http://127.0.0.1:8080/healthz
-   ```
+   - use existing `verity-pubsub@verity-506800.iam.gserviceaccount.com`;
+   - grant it `roles/run.invoker` only on service `verity`—the same binding already planned for
+     private Pub/Sub delivery;
+   - grant `ziyadazzazdesigner@gmail.com`
+     `roles/iam.serviceAccountOpenIdTokenCreator` only on that service account and only for this
+     probe;
+   - use IAM Credentials `generateIdToken` with audience equal to the canonical Cloud Run URI;
+   - keep the token in memory/a cleaned temp config and send exactly one `/healthz` request;
+   - remove the operator's temporary OIDC-token-creator binding in `finally` under every outcome;
+   - if health fails, also remove the push identity's early Run Invoker binding and stop; and
+   - if health passes, retain the push identity's planned Run Invoker binding and continue the
+     previously authorized private Phase 7 gates.
 
 2. If—and only if—the response is actual healthy Verity JSON, resume the previously authorized
    private Phase 7 sequence:
@@ -393,13 +400,9 @@ At the start of this report, the worktree was clean and local `HEAD` matched `or
 
 ## Owner input needed now
 
-Run the single Google Cloud Shell check above. Send back only:
-
-- the HTTP status line;
-- the JSON body, if present; or
-- the short error text.
-
-Do not send identity tokens, access tokens, `.env` contents, credentials, or Cloud Shell files.
+First stop the still-running Cloud Shell proxy with `kill "$proxy_pid"` or exit Cloud Shell so its
+registered trap performs cleanup. Then explicitly authorize or reject the bounded service-account
+OIDC health proof above. No credential needs to be sent in chat.
 
 ## Professional assessment
 
@@ -410,11 +413,11 @@ privately with retries disabled. The team also caught and corrected serious work
 source-integrity, and CLI plaintext-secret risks before public exposure.
 
 The current blocker is narrow but real: private authenticated delivery has not produced application
-health evidence despite a healthy container and correct server-side configuration. Repeated local
-retries are no longer useful. A single Cloud Shell result is the right next discriminator. If it
-passes, Phase 7 can finish quickly; if it returns the same unlogged 404, the evidence is strong
-enough to escalate through Google Cloud service health/support rather than altering IAM or the
-application spec speculatively.
+health evidence despite a healthy container and correct server-side configuration. Windows and
+Cloud Shell human-account paths now agree, so another human-token retry has no value. One
+least-privilege, audience-bound service-account request is the final technically distinct proof
+before escalating through Google Cloud service health/support. Its temporary credential-minting
+authority must be resource-scoped and removed under every outcome.
 
 ## Related sources of truth
 
