@@ -5,7 +5,8 @@
 - **Region:** `us-central1`
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
-- **Execution status:** authorized only through the private checkpoint; Phase 8 remains closed
+- **Execution status:** paused at the Phase 4 hard stop after a rejected build submission; Phase 8
+  remains closed
 
 ## Goal
 

@@ -187,8 +187,10 @@ Google Cloud authentication, Firestore, Artifact Registry, Cloud Build, Cloud Ru
 Logging, and the six-API no-role sandbox proof are live in `verity-506800`. The production API,
 pipeline job, app/push identities, application secrets, and push subscription were confirmed
 absent in the 2026-08-27 recovery inventory. The approved implementation is moving through local
-release gates before one private deployment. Public `allUsers` access remains a separate Phase 8
-owner checkpoint.
+release gates before one private deployment. Its first Phase 4 submission was rejected before a
+build was created because an ad hoc PowerShell command split the substitution argument; no release
+image or production resource exists. Public `allUsers` access remains a separate Phase 8 owner
+checkpoint.
 
 ### P1 — evidence comparability
 

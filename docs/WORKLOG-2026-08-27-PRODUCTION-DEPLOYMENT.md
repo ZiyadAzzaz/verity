@@ -130,3 +130,47 @@ Next: commit and push the clean release revision, perform the final read-only co
 gate, build immutable images once, re-prove the new sandbox digest, then create least-privilege
 identities/secrets and deploy API, pipeline, and OIDC push privately. Update this record with exact
 build IDs, digests, IAM, private health/OIDC evidence, and observed cost. Stop before Phase 8.
+
+## Phase 4 submission hard stop
+
+Two implementation revisions were committed and pushed before cloud execution:
+
+- `0782a4420f02b4d1f9f16e1a8eaf933370ac0fa9` — private deployment hardening; and
+- `1cc45ee04507ab93f18d093b89e6df0fed8c4c43` — separate global Vertex model location.
+
+Local `HEAD`, live `origin/main`, and the 12-character build tag all matched the second revision,
+the worktree was clean, and the 156-file upload context contained no `.env` or `.git` entry. The
+single Phase 4 submission then stopped with `INVALID_ARGUMENT` before Google created a build. In
+the ad hoc PowerShell invocation, the comma-separated `--substitutions` value was not quoted as one
+argument, so PowerShell split it and Cloud Build received a malformed image name. This is a launch
+defect, not a container or application failure.
+
+Observed post-stop state:
+
+- no new Cloud Build ID exists;
+- no `1cc45ee04507` API or sandbox image/tag exists;
+- no Cloud Run service, pipeline, app/push identity, production secret, subscription, or new IAM
+  binding exists;
+- the proven `verity-sandbox` job and foundation remain unchanged; and
+- one source archive exists at
+  `gs://verity-506800_cloudbuild/source/1787843200.48887-83a5e27cd5d64c009501abb858569b92.tgz`,
+  2,549,568 bytes in the `US` Cloud Build bucket.
+
+No build worker ran, so observed build-compute cost is `$0.00`. The closest conservative raw
+list-price exposure for retaining 2.43 MiB in US multi-region Standard storage for a full month,
+plus one Class A write, is below `$0.00008` using the official
+[Cloud Storage pricing](https://cloud.google.com/storage/pricing); posted billing is not available
+through the current CLI surface. This leaves cumulative new exposure from the production attempt
+effectively `$0.00` and the project far below both the ~$25 target and every stop threshold.
+
+The hard-stop rule was honored: there was no corrected retry. The next authorized attempt must
+pass the entire substitutions flag as one quoted PowerShell argument:
+
+```powershell
+gcloud builds submit --project=verity-506800 --config=cloudbuild.yaml `
+  '--substitutions=_REGION=us-central1,_REPOSITORY=verity,_TAG=1cc45ee04507' .
+```
+
+Professional assessment: cloud state is consistent and recoverable, but Phase 4 is incomplete.
+Obtain explicit owner approval for exactly one corrected submission, then resume at Phase 4; do
+not skip ahead to identities, secrets, private deployment, or Phase 8.
