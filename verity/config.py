@@ -74,6 +74,11 @@ class Settings(BaseSettings):
         validation_alias="GOOGLE_CLOUD_LOCATION",
         pattern=r"^[a-z]+-[a-z0-9]+[0-9]$",
     )
+    google_cloud_vertex_location: str = Field(
+        default="global",
+        validation_alias="GOOGLE_CLOUD_VERTEX_LOCATION",
+        pattern=r"^(?:global|[a-z]+-[a-z0-9]+[0-9])$",
+    )
     pubsub_topic: str = "verification-jobs"
     cloud_run_sandbox_job: str = Field(
         default="verity-sandbox", pattern=r"^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$"

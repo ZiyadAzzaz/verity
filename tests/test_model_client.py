@@ -129,6 +129,32 @@ def test_vertex_client_requires_a_project() -> None:
         VertexAIModelClient("gemini-3.5-flash", project=None)._configure_auth()
 
 
+def test_cloud_container_uses_the_separate_global_vertex_location(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from verity.config import Settings
+    from verity.container import build_model_client
+
+    monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "restore-after-test")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "restore-after-test")
+    monkeypatch.setenv("GOOGLE_GENAI_USE_VERTEXAI", "0")
+    settings = Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        env="cloud",
+        google_cloud_project="verity-prod",
+        google_cloud_location="us-central1",
+        google_cloud_vertex_location="global",
+    )
+    client = build_model_client(settings)
+    assert isinstance(client, VertexAIModelClient)
+    client._configure_auth()
+
+    import os
+
+    assert settings.google_cloud_location == "us-central1"
+    assert os.environ["GOOGLE_CLOUD_LOCATION"] == "global"
+
+
 def test_an_injected_key_is_used_when_the_environment_has_none(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -67,6 +67,11 @@ requirements, and `agents-cli deploy --help` completed successfully.
    not global `PATH`. Deployment now resolves it relative to the selected Verity Python.
 6. **Validation design — OIDC proof must not start Phase 9.** Added an internal OIDC-only probe
    route that shares the real worker token verifier but launches no pipeline job.
+7. **High — compute region was incorrectly coupled to model location.** The preflight returned 417
+   for `gemini-3.5-flash` in `us-central1`, while a zero-generation Vertex `countTokens` request
+   succeeded at `global` with four input tokens. Added a separately validated
+   `GOOGLE_CLOUD_VERTEX_LOCATION=global`; Firestore and both Cloud Run jobs stay in
+   `us-central1`.
 
 ## Implementation and decisions
 
@@ -77,6 +82,8 @@ requirements, and `agents-cli deploy --help` completed successfully.
 - Kept the API Uvicorn command explicit and installed project metadata without resolving runtime
   dependencies a second time.
 - Added the 12-character source revision as `AGENT_VERSION` for deployed traceability.
+- Separated the global Gemini endpoint from the regional data/compute location instead of moving
+  Firestore or Cloud Run away from `us-central1`.
 - Chose an isolated OS temporary working directory for Agents CLI instead of copying or renaming
   `.env`; this makes secret exclusion structural and leaves the owner's local file untouched.
 - Added exact temp-root validation before cleaning the generated CLI directory.
@@ -86,12 +93,14 @@ requirements, and `agents-cli deploy --help` completed successfully.
 - Focused security/worker/Pub/Sub suite: 38 passed.
 - Complete `scripts/test.ps1 -Docker` gate:
   - Ruff lint: passed;
-  - Ruff format: 116 files formatted correctly;
+  - Ruff format: 117 files formatted correctly;
   - strict mypy: 32 source files, no issues;
-  - pytest: 279 passed, 3 official-emulator-only skips, 2 dependency deprecation warnings;
+  - latest pytest rerun: 281 passed, 3 official-emulator-only skips, 2 dependency deprecation
+    warnings;
   - Docker escape validation: all eight boundary checks passed.
 - Local API image: `verity-api:predeploy`, manifest-list digest
-  `sha256:7552441a3d10c8e526b8c655904793256303a025731ceb4902f461ca4f61c574`.
+  `sha256:169881ff661fc826c253b51c2dbef4c1f192e9a28a7c7f7d11a36ed3a551d1c2`,
+  128,931,623 bytes.
 - Image imports, `verity-agent` metadata, and both console entry points: passed.
 - `verity-worker --help` and `python -m verity.worker --help`: passed with non-empty argparse help.
 - Local direct HTTP `/healthz`: `status=ok`, memory store, asyncio queue, host-subprocess smoke
@@ -103,8 +112,9 @@ requirements, and `agents-cli deploy --help` completed successfully.
 
 ## Cost record
 
-All actions in this implementation/recovery portion were local or read-only cloud queries.
-Observed cloud cost for this portion is `$0.00`. No billing configuration was read beyond enabled
+All actions in this implementation/recovery portion were local, read-only cloud queries, or one
+zero-generation `countTokens` availability check. Observed cloud cost for this portion is `$0.00`.
+No billing configuration was read beyond enabled
 status and no billing/payment/budget/quota/plan setting was changed. The prior raw sandbox
 build/compute equivalent remains `$0.0298481044886`; it is historical, not new spend from this
 session.

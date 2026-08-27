@@ -109,6 +109,7 @@ def test_pubsub_identity_requires_a_valid_custom_service_account_email(email: st
     [
         {"google_cloud_project": "bad/project"},
         {"google_cloud_location": "https://attacker.example"},
+        {"google_cloud_vertex_location": "https://attacker.example"},
         {"cloud_run_sandbox_job": 'job" OR true'},
         {"cloud_run_pipeline_job": "Uppercase"},
     ],
@@ -167,6 +168,7 @@ def test_deployment_blueprint_enforces_the_scoped_cloud_boundary() -> None:
     assert "GetTempPath" in script
     assert "Invoke-AgentsCliIsolated" in script
     assert "AGENT_VERSION=$sourceRevision" in script
+    assert "GOOGLE_CLOUD_VERTEX_LOCATION=global" in script
 
 
 def test_private_deploy_cannot_make_the_service_public() -> None:

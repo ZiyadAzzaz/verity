@@ -128,8 +128,9 @@ Additional mandatory checks:
 - `git diff --check`;
 - `.dockerignore` and `.gcloudignore` still exclude `.env`, credentials, databases, and Git state;
 - `agents-cli deploy --help` supports every flag used by the script;
-- the stable configured model `gemini-3.5-flash` is available through the intended Vertex AI
-  endpoint in `us-central1`, using metadata discovery or one explicitly cost-bounded smoke call;
+- the stable configured model `gemini-3.5-flash` is available through the Vertex AI `global`
+  endpoint while Cloud Run and Firestore remain in `us-central1`, using metadata discovery or one
+  explicitly cost-bounded smoke call;
 - process environment contains the three required production values without printing them;
 - Git worktree clean and local/remote revision identical; and
 - no token or secret appears in Git diff or build context.

@@ -209,7 +209,7 @@ if (-not (Test-Native gcloud pubsub topics describe verification-jobs)) {
 }
 Invoke-VerityPython @('-m', 'scripts.validate_cloud_sandbox_identity', '--project', $ProjectId, '--region', $Region, '--job', 'verity-sandbox', '--service-account', $sandboxServiceAccount, '--image', $sandboxImage)
 
-$commonEnvironment = "VERITY_ENV=cloud,VERITY_ENVIRONMENT=production,VERITY_GEMINI_MODEL=gemini-3.5-flash,VERITY_REPORT_REPO=$ReportRepo,GOOGLE_CLOUD_PROJECT=$ProjectId,GOOGLE_CLOUD_LOCATION=$Region,GOOGLE_GENAI_USE_VERTEXAI=true,VERITY_PUBSUB_OIDC_AUDIENCE=$pubsubAudience,VERITY_PUBSUB_SERVICE_ACCOUNT=$pushServiceAccount,AGENT_VERSION=$sourceRevision"
+$commonEnvironment = "VERITY_ENV=cloud,VERITY_ENVIRONMENT=production,VERITY_GEMINI_MODEL=gemini-3.5-flash,VERITY_REPORT_REPO=$ReportRepo,GOOGLE_CLOUD_PROJECT=$ProjectId,GOOGLE_CLOUD_LOCATION=$Region,GOOGLE_CLOUD_VERTEX_LOCATION=global,GOOGLE_GENAI_USE_VERTEXAI=true,VERITY_PUBSUB_OIDC_AUDIENCE=$pubsubAudience,VERITY_PUBSUB_SERVICE_ACCOUNT=$pushServiceAccount,AGENT_VERSION=$sourceRevision"
 $applicationSecrets = 'VERITY_API_KEY=verity-api-key:latest,VERITY_GITHUB_TOKEN=verity-github-token:latest'
 
 Invoke-AgentsCliIsolated deploy '--deployment-target' 'cloud_run' '--project' $ProjectId '--region' $Region '--service-name' 'verity' '--service-account' $appServiceAccount '--image' $apiImage '--memory' '2Gi' '--cpu' '1' '--min-instances' '0' '--max-instances' '2' '--concurrency' '4' '--secrets' $applicationSecrets '--update-env-vars' $commonEnvironment '--no-confirm-project'

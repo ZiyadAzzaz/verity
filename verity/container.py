@@ -104,7 +104,7 @@ def build_model_client(settings: Settings) -> ModelClient:
         return VertexAIModelClient(
             settings.gemini_model,
             project=settings.google_cloud_project,
-            location=settings.google_cloud_location,
+            location=settings.google_cloud_vertex_location,
         )
     return GeminiAIStudioClient(settings.gemini_model, api_key=settings.gemini_api_key)
 
