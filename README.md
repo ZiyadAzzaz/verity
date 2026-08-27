@@ -51,6 +51,9 @@ genuine result returns instantly without a single model call.
 | [docs/CLOUD-LIVE-SAFETY.md](docs/CLOUD-LIVE-SAFETY.md) | Current project, $450 credit truth, ~$25 target, hard cost gates, and billing boundary |
 | [docs/WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md](docs/WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md) | Complete live-cloud preparation record, stopped probe, decisions, evidence, cost, and next step |
 | [docs/WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md](docs/WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md) | Third probe: local pre-flight, packaging assessment, five live denials, Firestore 404, cost, and decision gate |
+| [docs/WORKLOG-2026-08-27-FOURTH-SANDBOX-PROBE.md](docs/WORKLOG-2026-08-27-FOURTH-SANDBOX-PROBE.md) | Passing fourth probe, Firestore creation, full preflight, exact 6/6 evidence, costs, and assessment |
+| [docs/CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md](docs/CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md) | Review artifact: exact passing validator JSON bound to execution, identity, image digest, and cost |
+| [docs/POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md](docs/POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md) | Prepared but unexecuted production API/pipeline deployment sequence and hard stop gates |
 | [docs/GOOGLE-CLOUD-CONSOLE-INSPECTION.md](docs/GOOGLE-CLOUD-CONSOLE-INSPECTION.md) | Read-only visual checklist for project, billing, build, image, job, IAM, secret, Pub/Sub, and APIs |
 | [docs/WORK-RECORD-STANDARD.md](docs/WORK-RECORD-STANDARD.md) | Required Markdown record for every future material work session |
 | [docs/AUDIT-2026-08-24.md](docs/AUDIT-2026-08-24.md) | Deep code, runtime, security, deployment, and artifact audit |

@@ -10,6 +10,10 @@
 - **Outcome:** failed acceptance — five explicit 403 denials; Firestore returned 404
 - **Production status:** both fail-closed guards remain active
 
+**Follow-up:**
+[WORKLOG-2026-08-27-FOURTH-SANDBOX-PROBE.md](WORKLOG-2026-08-27-FOURTH-SANDBOX-PROBE.md)
+records creation of the authorized database and the passing six-denial proof.
+
 ## Objective and authorization
 
 The owner authorized one third invocation of the sandbox-only identity probe after a mandatory

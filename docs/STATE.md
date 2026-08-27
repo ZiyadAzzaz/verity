@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md](WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md).
+[WORKLOG-2026-08-27-FOURTH-SANDBOX-PROBE.md](WORKLOG-2026-08-27-FOURTH-SANDBOX-PROBE.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Google Cloud visual inspection:**
@@ -35,13 +35,14 @@ service account with zero project or discovered resource-level IAM bindings. Pub
 Google OIDC instead of a
 URL secret.
 
-It is not yet a finished hackathon submission. The third sandbox probe ran the real no-role
-container and recovered five explicit 403 denials, but Firestore returned 404 because the
-`(default)` database does not exist. This is not acceptable as IAM-denial evidence. The Cloud
-Logging query defects found afterward are fixed and fully tested. Creating the one-time-location
-Firestore database and running another probe both require explicit owner approval. Production
-remains fail-closed until validator-produced JSON contains six explicit 401/403 results. See
-[WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md](WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md).
+The live least-privilege gate is now **passed**. After creating the authorized free-tier Standard
+Native `(default)` Firestore database in `us-central1`, a full precondition sweep passed and the
+fourth no-role sandbox execution returned six explicit 403 denials in validator-produced JSON.
+The proof is bound to the exact execution, identity, source revision, and immutable image digest.
+Production remains intentionally undeployed and both guards remain closed until separate owner
+review and approval. See
+[CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md](CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md) and
+[POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md](POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md).
 
 The Firestore and Pub/Sub adapters have now also passed Google's official local emulators with no
 account or credentials. This reduces adapter and transaction risk but is not live-cloud evidence.
@@ -220,12 +221,13 @@ The implementation-ready schemas, trust boundaries, crash windows, and acceptanc
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 
 1. Local static, unit, Docker, image, and isolation gates are complete.
-2. After the configured AI Studio quota resets (or the owner installs another local key), rerun
-   the full eight-source catalogue into a fresh writable database. Whisper is already complete.
-3. Obtain the project ID and billing confirmation; authenticate Cloud SDK locally.
-4. Deploy only the no-role sandbox and require the metadata-token denial probe to pass.
-5. Review the live evidence, then remove the two fail-closed guards as a separate change and
-   authenticate Agents CLI and deploy staging with a hard operational budget procedure.
+2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
+3. Review the proof and
+   [POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md](POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md).
+4. Add the missing random `VERITY_API_KEY` locally, install/validate Agents CLI, resolve package
+   installation and the no-op module-launched worker, then rerun all local/Docker gates.
+5. After separate approval, transition the two guards and deploy privately in the documented
+   dependency/IAM order with per-action cost reporting.
 6. Run one unseen source through the real deployed path, confirm Firestore/Pub/Sub/Trace/Logging
    evidence and an autonomously filed Issue, then run all deployed catalogue URLs plus dedup.
 7. Add broader provenance, recovery leases/outbox, image-digest pinning, and stronger egress after
@@ -234,18 +236,17 @@ steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 
 ## Inputs needed from the project owner
 
-Nothing is needed to finish local code/test work. Later, do not paste credentials into chat;
-instead:
+Do not paste credentials into chat. Before an approved production deployment:
 
 - attach/open the in-app Browser when you want the visual interaction pass;
-- provide the Google Cloud project ID, confirm the hackathon credits/billing account are active,
-  and authenticate `gcloud` locally so the mandatory identity test can run; Agents CLI is needed
-  only after the proof is reviewed and staging deployment is approved;
+- inspect the posted Billing Report using the Console guide;
+- generate a separate random `VERITY_API_KEY` of at least 32 bytes and save it only in local
+  `.env`; the GitHub token and report repository keys are already present;
+- explicitly approve the prepared production deployment plan; and
 - allow the configured AI Studio quota to reset or replace the key locally in `.env` so the final
   eight-source catalogue can run; never paste the key into chat;
-- explicitly approve any external GitHub mutation if you want the historical issues updated,
-  closed, or refiled.
+- keep `gcloud` authenticated; install Agents CLI only in the approved implementation phase.
 
-Until the P0 live evidence is captured, describe Verity as a **locally proven MVP with an
-implemented but not yet cloud-validated security boundary**, not as deployed or
-submission-complete.
+Describe Verity as a **locally proven MVP with a live-validated no-role cloud sandbox boundary**.
+Do not describe the full product as deployed or submission-complete until the separately approved
+API/pipeline deployment and end-to-end evidence pass.

@@ -35,18 +35,18 @@ the details before changing anything.
 
 ```mermaid
 flowchart LR
-    S[Clean Git revision c58134b] --> B[Default-pool Cloud Build<br/>65.141 seconds]
+    S[Clean Git revision 1b0ff95] --> B[Default-pool Cloud Build<br/>81.533 seconds]
     B --> I[Immutable sandbox image<br/>SHA-256 digest]
     I --> J[Private verity-sandbox Job<br/>no-role service account]
-    J --> P[Execution verity-sandbox-fmg7n<br/>metadata token obtained]
-    P --> D[Five APIs denied 403<br/>Firestore returned 404]
-    D --> F[Acceptance failed]
-    F -. owner approval required .-> N[Create default Firestore<br/>then run a new probe]
+    J --> P[Execution verity-sandbox-rcxvn<br/>metadata token obtained]
+    P --> D[Six sensitive APIs<br/>all denied 403]
+    D --> F[Least-privilege proof passed]
+    F -. owner review required .-> N[Prepared production plan<br/>not executed]
 ```
 
-The solid path is complete. The dotted next step has **not run**. The Console must currently show
-one successful Cloud Run execution, five explicit 403 denials in its structured stdout report, and
-one Firestore 404. The result is not a passing six-API proof.
+The solid path is complete. The dotted production step has **not run**. The Console must currently
+show two successful Cloud Run executions; the latest structured stdout report and validator JSON
+contain six explicit 403 denials and `passed: true`.
 
 ## Step 1 — Confirm the account and project
 
@@ -87,29 +87,29 @@ not `$0.00 confirmed`.
 
 Expected measured usage before billing discounts:
 
-- cumulative Cloud Build and Cloud Run raw list-price equivalent: approximately `$0.017760`;
-- Artifact Registry: 311.733 MB, below the first 0.5 GiB-month free allowance;
-- Secret Manager: two active versions, below the first six-version allowance;
+- cumulative Cloud Build and Cloud Run raw list-price equivalent: approximately `$0.029848`;
+- Artifact Registry: 444.338 MB, below the first 0.5 GiB-month free allowance;
+- Secret Manager: three active versions, below the first six-version allowance;
 - Pub/Sub: zero throughput;
-- Cloud Run: one 117.143-second execution, approximately `$0.005154` before free tier; and
-- conservative cumulative raw upper bound: less than `$0.02` plus negligible storage.
+- latest Cloud Run execution: 89.433 seconds, approximately `$0.003935` before free tier; and
+- conservative cumulative raw upper bound: less than `$0.03` plus negligible storage.
 
 Official reference: [Google Cloud Billing Reports documentation](https://docs.cloud.google.com/billing/docs/how-to/reports).
 
 ## Step 3 — Inspect the successful Cloud Build
 
 1. Open [Cloud Build history](https://console.cloud.google.com/cloud-build/builds?project=verity-506800).
-2. Find the latest build ID `0d14ddb8-148d-45dd-87e9-02604c0129a9`.
+2. Find the latest build ID `9e9ee62b-552c-428a-a983-0dcd0a3570b0`.
 3. Open it and verify:
    - status: **Success**;
-   - start: `2026-08-27 09:23:23 UTC` approximately;
-   - finish: `2026-08-27 09:24:28 UTC` approximately;
-   - duration: approximately **1 minute 5 seconds**;
-   - image tag ends in `verity-sandbox:c58134b391db`; and
+   - start: `2026-08-27 09:52:06 UTC` approximately;
+   - finish: `2026-08-27 09:53:28 UTC` approximately;
+   - duration: approximately **1 minute 22 seconds**;
+   - image tag ends in `verity-sandbox:1b0ff95c74d0`; and
    - no private worker-pool name is shown.
 4. You may read the build log. Do not click **Rebuild**, **Retry**, or create a trigger.
 
-The earlier successful build `65d041cb-3b3f-4422-b023-a9682cc266cc` should also remain visible.
+The two earlier successful builds should also remain visible.
 Cloud Build IDs and durations are the primary evidence used for the cost calculation.
 
 ## Step 4 — Inspect the immutable Artifact Registry image
@@ -118,14 +118,14 @@ Cloud Build IDs and durations are the primary evidence used for the cost calcula
 2. Select region `us-central1` if the page asks for a location.
 3. Open repository `verity`.
 4. Open package/image `verity-sandbox`.
-5. Verify the latest revision tag is `c58134b391db`.
+5. Verify the latest revision tag is `1b0ff95c74d0`.
 6. Verify the digest is exactly:
 
    ```text
-   sha256:9b2ac0c9e082e69453a4fadf18d9da5f3baa4681718cf7800decc7151b11f907
+   sha256:615e71df55395e0ec84e875bf943bda22d6e84d62d95835a59965cc7c12853b3
    ```
 
-7. Confirm repository size is approximately **311.733 MB**.
+7. Confirm repository size is approximately **444.338 MB**.
 
 Do not delete the image or change cleanup policies. The digest is important because a SHA-256
 digest cannot silently move to a different container image the way a mutable tag can.
@@ -148,16 +148,16 @@ digest cannot silently move to a different container image the way a mutable tag
    - volumes and volume mounts: none; and
    - VPC/network attachment: none.
 5. Open **Executions** or the execution-history section.
-6. Confirm it contains exactly one execution: `verity-sandbox-fmg7n`.
-7. Open that execution read-only and confirm:
+6. Confirm it contains two executions. The latest is `verity-sandbox-rcxvn`; the earlier one is
+   `verity-sandbox-fmg7n`.
+7. Open `verity-sandbox-rcxvn` read-only and confirm:
    - status: successful;
    - one succeeded task;
-   - duration: approximately **1m57.14s**;
+   - duration: approximately **1m29.43s**;
    - image digest matches Step 4; and
    - arguments are `--verify-identity verity-506800:us-central1`.
 8. Open its **Logs** tab and locate the line beginning
-   `VERITY_SANDBOX_IDENTITY_V1=`. It should show five status codes of 403 and a Firestore status
-   code of 404.
+   `VERITY_SANDBOX_IDENTITY_V1=`. It should show six status codes of 403, including Firestore.
 
 Do not click **Execute**. The next execution must be launched only by the reviewed validator after
 explicit approval. Google documents that a job execution starts container resources and appears
@@ -180,18 +180,28 @@ The command-line evidence also found zero resource-level IAM policies referencin
 The Console project IAM view is a human-readable cross-check, not a replacement for the project
 and resource-policy searches already recorded.
 
-## Step 7 — Inspect the non-sensitive Secret Manager sentinel
+## Step 7 — Inspect Firestore
+
+1. Open [Firestore databases](https://console.cloud.google.com/firestore/databases?project=verity-506800).
+2. Confirm database `(default)` exists.
+3. Confirm edition Standard, mode Firestore Native, and location `us-central1`.
+4. Confirm there is no document at the probe's forbidden path; its write was denied.
+
+Do not create another database, change location-related settings, or enable paid backup/PITR
+features during inspection.
+
+## Step 8 — Inspect the non-sensitive Secret Manager sentinel
 
 1. Open [Secret Manager](https://console.cloud.google.com/security/secret-manager?project=verity-506800).
 2. Open `verity-sandbox-deny-probe`.
-3. Confirm there are exactly two enabled versions: versions `1` and `2`.
+3. Confirm there are exactly three enabled versions: versions `1`, `2`, and `3`.
 4. Confirm automatic replication is used.
 
 Do not view the value and do not add, disable, or destroy a version. The value is deliberately
 non-sensitive, but inspecting it is unnecessary. Its purpose is only to prove later that the
 sandbox token cannot read Secret Manager.
 
-## Step 8 — Inspect the Pub/Sub sentinel topic
+## Step 9 — Inspect the Pub/Sub sentinel topic
 
 1. Open [Pub/Sub Topics](https://console.cloud.google.com/cloudpubsub/topic/list?project=verity-506800).
 2. Open topic `verification-jobs`.
@@ -202,7 +212,7 @@ sandbox token cannot read Secret Manager.
 Do not publish a message or create a subscription. The topic exists only so the sandbox token can
 later attempt—and be denied—a real publish request.
 
-## Step 9 — Inspect enabled APIs
+## Step 10 — Inspect enabled APIs
 
 1. Open the [APIs & Services dashboard](https://console.cloud.google.com/apis/dashboard?project=verity-506800).
 2. Confirm the expected APIs are enabled, including Cloud Run, Cloud Build, Artifact Registry,
@@ -211,7 +221,7 @@ later attempt—and be denied—a real publish request.
 API enablement alone does not prove the API was used and does not prove the security check passed.
 Do not enable additional APIs, change quota, or request quota increases.
 
-## Step 10 — Optional Cloud Build source-storage check
+## Step 11 — Optional Cloud Build source-storage check
 
 1. Open [Cloud Storage browser](https://console.cloud.google.com/storage/browser?project=verity-506800).
 2. Open bucket `verity-506800_cloudbuild` if it is visible.
@@ -219,10 +229,10 @@ Do not enable additional APIs, change quota, or request quota increases.
 4. The recorded source object is:
 
    ```text
-   1787821437.85186-fac0c3a4a1aa4ec391dc16fb44b32da5.tgz
+   1787824311.107904-dc58aa578ba24ff5aff91983d4e7f783.tgz
    ```
 
-5. Its recorded size is **2,520,513 bytes**.
+5. Its recorded size is **2,532,894 bytes**.
 
 Do not delete it or change the bucket lifecycle during this inspection.
 
@@ -230,12 +240,13 @@ Do not delete it or change the bucket lifecycle during this inspection.
 
 - [ ] Correct account and project are selected.
 - [ ] Billing report is filtered only to `verity-506800` and its latest-data time is recorded.
-- [ ] Build `0d14ddb8-148d-45dd-87e9-02604c0129a9` shows Success and about 65 seconds.
+- [ ] Build `9e9ee62b-552c-428a-a983-0dcd0a3570b0` shows Success and about 82 seconds.
 - [ ] Repository `verity` contains the expected immutable sandbox digest.
-- [ ] `verity-sandbox` Job is private and has exactly one successful execution.
-- [ ] Its log shows five 403 denials and one Firestore 404.
+- [ ] `verity-sandbox` Job is private and has exactly two successful executions.
+- [ ] Latest execution `verity-sandbox-rcxvn` shows six 403 denials and `passed: true`.
 - [ ] Sandbox service account exists with no project IAM role.
-- [ ] Sentinel secret has exactly two active versions.
+- [ ] Firestore `(default)` is Standard Native in `us-central1`.
+- [ ] Sentinel secret has exactly three active versions.
 - [ ] Sentinel Pub/Sub topic exists without a production push subscription.
 - [ ] No Verity API, pipeline worker, or public production service exists.
 - [ ] No setting was edited during inspection.
@@ -265,17 +276,14 @@ Anything unexpected:
 ## Professional assessment and what happens next
 
 The current Console state should show a correctly built, digest-pinned, no-role sandbox job with
-one successful execution. That execution is strong live evidence for five APIs, but it is not the
-complete security proof because Firestore returned 404 before IAM denial could be demonstrated.
-The decisive result is still validator-produced JSON containing explicit `401` or `403` from all
-six sensitive APIs.
+two successful executions. The latest execution is the complete security proof: validator-produced
+JSON contains six explicit 403 denials and is bound to the expected identity and immutable digest.
 
 After you inspect the pages and send the Billing/Console details, the recommended next step is to
-approve the permanent location for a Standard Native-mode `(default)` Firestore database and then
-authorize one new complete probe invocation. The agent will reconfirm the clean pushed revision,
-create only the approved database, report its cost, run the validator once, preserve the exact
-JSON, measure the execution cost, update the Markdown work record, and keep both production guards
-closed for your separate review.
+review [POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md](POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md).
+Production remains closed until you explicitly approve that plan. The first implementation steps
+will resolve package installation, install and validate deployment tooling, update guard tests,
+and rerun all local gates before any privileged cloud resource is created.
 
 ## Documentation record
 

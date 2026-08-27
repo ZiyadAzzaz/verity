@@ -119,6 +119,11 @@ the deployed job spec. Deployment explicitly clears all of those ambient capabil
 A network timeout, missing API, unexpected identity, `404`, or successful response is
 inconclusive or unsafe and fails deployment. The token itself is never printed or persisted.
 
+**Live result, 2026-08-27:** execution `verity-sandbox-rcxvn` returned explicit 403 denials for all
+six APIs and the validator emitted `passed: true`. See
+[CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md](CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md). Production guards
+remain closed pending separate owner approval.
+
 ## Pub/Sub OIDC correction
 
 The push endpoint no longer accepts a secret in its URL. Production requires:
