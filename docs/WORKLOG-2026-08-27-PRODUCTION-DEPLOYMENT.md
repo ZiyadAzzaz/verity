@@ -379,3 +379,67 @@ strong. The decisive sandbox proof passed again, secrets stayed out of plaintext
 is narrow, and the public boundary remains closed. The remaining defect is currently a delivery
 URL/health invocation problem, not evidence that the application failed to start. It must still be
 resolved and proven before any OIDC configuration or Phase 8 approval.
+
+## Authorized private-health continuation
+
+The owner authorized exactly one authenticated request to
+`https://verity-291098081728.us-central1.run.app/healthz`, with no redeployment or IAM change, and
+authorized the remaining private Phase 7 gates only if that request passed.
+
+Preconditions were unchanged:
+
+- local `HEAD` and `origin/main` matched
+  `d2df9c08e802af79fa259af14a75a6474a284088` with a clean worktree;
+- revision `verity-00001-twb` remained Ready on the approved immutable API digest;
+- identity remained `verity-app@verity-506800.iam.gserviceaccount.com`; and
+- service IAM remained empty.
+
+The one authorized request used the signed-in operator's output from
+`gcloud auth print-identity-token`. It returned the same Google-front-end 404 page and no Verity
+JSON. Therefore the conditional authorization to continue was not satisfied. No unauthenticated
+probe, push IAM, Pub/Sub token-creator binding, `verity-worker` subscription, OIDC probe, or Phase
+8 action followed.
+
+### Confirmed cause
+
+The identity token was decoded locally without printing or retaining it. Its safe claims showed:
+
+- issuer: `https://accounts.google.com`;
+- subject email: `ziyadazzazdesigner@gmail.com`; and
+- audience: `32555940559.apps.googleusercontent.com`.
+
+That audience is the gcloud OAuth client, not either Cloud Run URL. The token was valid but was not
+audience-bound to service `verity`, explaining why the Google front end rejected it before the
+container. This supersedes the earlier tentative URL-propagation hypothesis.
+
+Two no-request preparation checks then established the available paths:
+
+1. `gcloud auth print-identity-token <human> --audiences=<service-url>` fails locally with
+   `Invalid account type for --audiences; requires valid service account`.
+2. Impersonating `verity-app` with the correct audience fails because the operator intentionally
+   lacks `iam.serviceAccounts.getAccessToken` / `roles/iam.serviceAccountTokenCreator` on that
+   identity.
+
+No IAM was added to bypass these controls. The official gcloud-supported path for testing an
+IAM-private Cloud Run service with human credentials is `gcloud run services proxy`, which exposes
+an authenticated localhost proxy. Its help/launch path was inspected only; it was not started and
+no third health request was sent.
+
+### Post-stop evidence and cost
+
+Read-only state after the stop confirms:
+
+- service IAM: empty;
+- push identity IAM: empty;
+- subscription `verity-worker`: absent; and
+- no `allUsers` binding.
+
+Cloud Run request logs contain unauthenticated browser/favicon requests returning expected 403,
+but contain no record of either direct scripted `/healthz` request. The authorized request did not
+start container work, identity-token issuance has no direct usage charge, and the closest observed
+incremental cost is `$0.00`.
+
+Professional assessment: this is now a diagnosed operator-authentication defect, not an API health
+failure. The safe next action is one explicitly authorized localhost `/healthz` request through
+`gcloud run services proxy`, with no IAM/redeploy change. If that passes, continue the original
+private unauthenticated rejection and OIDC gates; Phase 8 must remain closed.

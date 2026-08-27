@@ -194,10 +194,15 @@ The app identity, push identity, two production secrets, private API revision
 configuration. The service has no invoker binding; the push identity has no binding; and
 subscription `verity-worker` does not exist.
 
-The first private authenticated `/healthz` request used the service's `status.url` and returned a
-Google-front-end 404. Cloud Logging shows a healthy Uvicorn container and no request record, so the
-request did not reach the application. No alternate-URL request was made because private health
-failure is a hard stop. Public `allUsers` access remains a separate Phase 8 owner checkpoint.
+Two separately authorized private `/healthz` requests—one to `status.url`, then one to the
+deployment-returned URL—returned Google-front-end 404 pages and produced no Cloud Run request log.
+The second request exposed the exact client defect: `gcloud auth print-identity-token` for the
+signed-in human emitted audience `32555940559.apps.googleusercontent.com`, not the Cloud Run URL.
+gcloud refuses a custom audience for a human account, and the operator does not have permission to
+impersonate `verity-app`; no IAM was changed to work around this. The revision remains healthy.
+The next approved check should use the official `gcloud run services proxy` IAM-authenticated test
+path and send exactly one localhost `/healthz` request. Public `allUsers` access remains a separate
+Phase 8 owner checkpoint.
 
 ### P1 — evidence comparability
 
@@ -236,8 +241,8 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Obtain owner authorization for one corrected private health request against the deployment URL
-   `https://verity-291098081728.us-central1.run.app`; do not change IAM or redeploy first.
+4. Obtain owner authorization for one corrected private health request through
+   `gcloud run services proxy verity`; do not change IAM or redeploy first.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm

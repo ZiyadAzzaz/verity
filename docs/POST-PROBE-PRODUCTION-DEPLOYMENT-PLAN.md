@@ -6,8 +6,9 @@
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
 - **Execution status:** stopped during the Phase 7 private health gate after Phases 4–6 and the
-  private API/pipeline creation completed; no Phase 7 push IAM/subscription exists and Phase 8
-  remains closed
+  private API/pipeline creation completed; two direct authenticated attempts used a human token
+  with the wrong audience and never reached the container; no Phase 7 push IAM/subscription exists
+  and Phase 8 remains closed
 
 ## Goal
 
@@ -229,7 +230,8 @@ arguments, logs, Markdown, Git, or build context.
 5. Verify the deployed job override contract changes only args to
    `-m verity.worker <job_id>` and keeps command `python`.
 6. Invoke authenticated `/healthz` as the operator and require healthy Firestore, Pub/Sub, Vertex,
-   and configuration startup.
+   and configuration startup. For a human gcloud account, use `gcloud run services proxy` rather
+   than assuming the default `gcloud auth print-identity-token` audience matches the service URL.
 
 Stop while the service is still private if health, configuration, image digest, identity, or
 secret wiring is wrong.
