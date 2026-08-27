@@ -443,3 +443,72 @@ Professional assessment: this is now a diagnosed operator-authentication defect,
 failure. The safe next action is one explicitly authorized localhost `/healthz` request through
 `gcloud run services proxy`, with no IAM/redeploy change. If that passes, continue the original
 private unauthenticated rejection and OIDC gates; Phase 8 must remain closed.
+
+## Authorized gcloud-proxy health continuation
+
+The owner authorized exactly one private `/healthz` request through
+`gcloud run services proxy verity`, with no IAM or deployment change, and authorized later private
+Phase 7 work only on a passing health response.
+
+Prechecks again showed a clean repository at
+`344b74e25f1d434b83b2f9c0d0dc6e01e7838b46`, unchanged ready revision
+`verity-00001-twb`, the approved image digest and app identity, and empty service IAM.
+
+### Local proxy prerequisite
+
+The first proxy launch revealed that gcloud component `cloud-run-proxy` was absent. The automatic
+install/restart path did not leave a listener and initially still reported the component absent.
+An explicit non-interactive install failed because the bundled Python updater requires an
+interactive console. The official component was then installed interactively and verified as
+`Installed`. This changed only the local Google Cloud SDK; it did not call the service, mutate a
+cloud resource, or incur cloud cost.
+
+The proxy then started successfully:
+
+```text
+http://127.0.0.1:18080 proxies to https://verity-7pauedpknq-uc.a.run.app
+```
+
+Exactly one GET was sent to `http://127.0.0.1:18080/healthz`. It returned the same Google-front-end
+404 HTML and no Verity JSON. The proxy was terminated immediately. Because health did not pass,
+no unauthenticated gate, IAM binding, subscription, OIDC delivery, or Phase 8 action followed.
+
+### Correction to the previous diagnosis
+
+The previous section treated the human token's OAuth-client audience as the confirmed cause. The
+official proxy uses the active account's identity token and is Google's recommended private-test
+path, yet it produced the same result. That hypothesis is therefore not sufficient and must be
+treated as superseded, not as established root cause.
+
+Additional read-only evidence:
+
+- Google's current documentation says gcloud-generated developer ID tokens can invoke Cloud Run
+  when the account has `run.routes.invoke`.
+- The live `roles/owner` definition includes `run.routes.invoke`, and the project policy assigns
+  that role to the active account.
+- Service ingress is `all`; no annotation disables the default URL.
+- Unauthenticated browser requests to the deployment URL appear in Cloud Run request logs with
+  expected 403 responses, proving the URL can route to the service front end.
+- The official VPC Service Controls `run.googleapis.com/HttpIngress` policy-log query returned no
+  entries.
+- The Policy Troubleshooter API is disabled. It was not enabled because doing so would be a new
+  cloud mutation outside this diagnostic need.
+
+The failure is now isolated to authenticated requests from the current Windows/gcloud client path,
+but its exact cause is unresolved. The next bounded no-IAM diagnostic should change the HTTP client
+instead of repeating `Invoke-WebRequest` or the proxy: use `curl.exe` with a fresh gcloud token
+stored only in a cleaned OS-temp curl configuration so the credential never appears in process
+arguments, output, Markdown, or Git.
+
+### State and cost after the third stop
+
+- Service, revision, digest, job configuration, secrets, and IAM remain unchanged.
+- `verity-worker`, push invoker, Pub/Sub token creator, and `allUsers` remain absent.
+- The request did not appear in Cloud Run request logs and did not start measured container work.
+- Local SDK component installation and read-only queries have no cloud usage charge.
+- Closest observed incremental cloud cost: `$0.00`.
+
+Professional assessment: stopping remains correct. The healthy revision and logged 403 browser
+traffic argue against an application or general URL outage, but private authenticated health is
+still unproven. Do not assemble OIDC or expose Phase 8 until one client path returns the actual
+Verity health JSON.

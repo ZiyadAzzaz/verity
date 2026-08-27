@@ -194,15 +194,15 @@ The app identity, push identity, two production secrets, private API revision
 configuration. The service has no invoker binding; the push identity has no binding; and
 subscription `verity-worker` does not exist.
 
-Two separately authorized private `/healthz` requests—one to `status.url`, then one to the
-deployment-returned URL—returned Google-front-end 404 pages and produced no Cloud Run request log.
-The second request exposed the exact client defect: `gcloud auth print-identity-token` for the
-signed-in human emitted audience `32555940559.apps.googleusercontent.com`, not the Cloud Run URL.
-gcloud refuses a custom audience for a human account, and the operator does not have permission to
-impersonate `verity-app`; no IAM was changed to work around this. The revision remains healthy.
-The next approved check should use the official `gcloud run services proxy` IAM-authenticated test
-path and send exactly one localhost `/healthz` request. Public `allUsers` access remains a separate
-Phase 8 owner checkpoint.
+Three separately authorized private `/healthz` requests—one to `status.url`, one to the
+deployment-returned URL, and one through the official `gcloud run services proxy`—returned
+Google-front-end 404 pages and produced no Cloud Run request log. The proxy result disproves the
+earlier conclusion that the direct client's token audience alone was the confirmed cause. The
+operator's existing Owner role includes `run.routes.invoke`, ingress is `all`, unauthenticated
+browser requests reach Cloud Run and return logged 403, the default URL is active, and the official
+VPC Service Controls policy-log query returned no denial. The revision remains healthy; the
+authenticated Windows/gcloud client path remains unresolved. No IAM was changed to work around
+it. Public `allUsers` access remains a separate Phase 8 owner checkpoint.
 
 ### P1 — evidence comparability
 
@@ -241,8 +241,9 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Obtain owner authorization for one corrected private health request through
-   `gcloud run services proxy verity`; do not change IAM or redeploy first.
+4. Review the third private-health stop and choose the next bounded diagnostic. The recommended
+   no-IAM option is one direct `curl.exe` request using a fresh gcloud identity token supplied via
+   a cleaned temporary curl configuration, avoiding `Invoke-WebRequest` and the proxy component.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm
