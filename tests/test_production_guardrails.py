@@ -132,7 +132,7 @@ def test_deployment_script_stops_before_the_first_gcloud_mutation() -> None:
 def test_deployment_blueprint_enforces_the_scoped_cloud_boundary() -> None:
     script = Path("scripts/deploy.ps1").read_text(encoding="utf-8")
     sandbox_deploy = script.index("run jobs deploy verity-sandbox")
-    identity_gate = script.index("'scripts/validate_cloud_sandbox_identity.py'")
+    identity_gate = script.index("'scripts.validate_cloud_sandbox_identity'")
     app_deploy = script.index("agents-cli deploy")
 
     assert "roles/datastore.user" in script  # app role and explicit legacy removal
@@ -180,7 +180,8 @@ def test_sandbox_only_proof_cannot_deploy_the_privileged_application() -> None:
     assert "--clear-secrets" in script
     assert "--clear-volumes" in script
     assert "--clear-network" in script
-    assert "validate_cloud_sandbox_identity.py" in script
+    assert "scripts.validate_cloud_sandbox_identity" in script
+    assert "scripts/validate_cloud_sandbox_identity.py" not in script
     assert "'--image', $sandboxImage" in script
     assert "image_summary.fully_qualified_digest" in script
     assert "@sha256:[0-9a-f]{64}$" in script

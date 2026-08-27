@@ -109,6 +109,6 @@ else {
 }
 Invoke-Checked gcloud run jobs deploy verity-sandbox "--image=$sandboxImage" "--region=$Region" "--service-account=$sandboxServiceAccount" '--task-timeout=3600' '--max-retries=0' '--memory=4Gi' '--cpu=2' '--clear-env-vars' '--clear-secrets' '--clear-volumes' '--clear-volume-mounts' '--clear-network' '--quiet'
 
-Invoke-VerityPython @('scripts/validate_cloud_sandbox_identity.py', '--project', $ProjectId, '--region', $Region, '--job', 'verity-sandbox', '--service-account', $sandboxServiceAccount, '--image', $sandboxImage)
+Invoke-VerityPython @('-m', 'scripts.validate_cloud_sandbox_identity', '--project', $ProjectId, '--region', $Region, '--job', 'verity-sandbox', '--service-account', $sandboxServiceAccount, '--image', $sandboxImage)
 Write-Host "Sandbox-only proof passed. The privileged Verity app was not deployed."
 Write-Host "Keep scripts/deploy.ps1 and the production configuration guard closed until the owner reviews this evidence."
