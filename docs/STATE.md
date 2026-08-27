@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-27-FOURTH-SANDBOX-PROBE.md](WORKLOG-2026-08-27-FOURTH-SANDBOX-PROBE.md).
+[WORKLOG-2026-08-27-PRODUCTION-DEPLOYMENT.md](WORKLOG-2026-08-27-PRODUCTION-DEPLOYMENT.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Google Cloud visual inspection:**
@@ -39,8 +39,11 @@ The live least-privilege gate is now **passed**. After creating the authorized f
 Native `(default)` Firestore database in `us-central1`, a full precondition sweep passed and the
 fourth no-role sandbox execution returned six explicit 403 denials in validator-produced JSON.
 The proof is bound to the exact execution, identity, source revision, and immutable image digest.
-Production remains intentionally undeployed and both guards remain closed until separate owner
-review and approval. See
+The immutable production API and pipeline are now deployed **privately**, but the Phase 7 health
+gate is not passed: the first authenticated request to the service-reported `status.url` returned
+a Google-front-end 404 and did not reach the container. The hard-stop rule prevented an automatic
+request to the alternate Cloud Run URL. Push IAM, the `verity-worker` subscription, OIDC delivery
+proof, and public `allUsers` access remain absent. See
 [CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md](CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md) and
 [POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md](POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md).
 
@@ -181,16 +184,20 @@ Required evidence before removing either production guard:
 5. Preserve the honest residual-risk statement: no-role IAM closes credential blast radius but
    does not provide offline evaluation, malicious-code attestation, or kernel-exploit immunity.
 
-### P0 — private production deployment in progress
+### P0 — private production deployment stopped at health gate
 
-Google Cloud authentication, Firestore, Artifact Registry, Cloud Build, Cloud Run Jobs, Cloud
-Logging, and the six-API no-role sandbox proof are live in `verity-506800`. The production API,
-pipeline job, app/push identities, application secrets, and push subscription were confirmed
-absent in the 2026-08-27 recovery inventory. The approved implementation is moving through local
-release gates before one private deployment. Its first Phase 4 submission was rejected before a
-build was created because an ad hoc PowerShell command split the substitution argument; no release
-image or production resource exists. Public `allUsers` access remains a separate Phase 8 owner
-checkpoint.
+The corrected build `2cb7068d-e078-4f01-99b7-ce3a96638dab` succeeded from detached release
+`1cc45ee04507ab93f18d093b89e6df0fed8c4c43`. Its immutable API and sandbox images are deployed;
+the new sandbox execution `verity-sandbox-7qgm6` proved all six sensitive APIs denied with 403.
+The app identity, push identity, two production secrets, private API revision
+`verity-00001-twb`, and private `verity-pipeline` job now exist with the reviewed least-privilege
+configuration. The service has no invoker binding; the push identity has no binding; and
+subscription `verity-worker` does not exist.
+
+The first private authenticated `/healthz` request used the service's `status.url` and returned a
+Google-front-end 404. Cloud Logging shows a healthy Uvicorn container and no request record, so the
+request did not reach the application. No alternate-URL request was made because private health
+failure is a hard stop. Public `allUsers` access remains a separate Phase 8 owner checkpoint.
 
 ### P1 — evidence comparability
 
@@ -229,16 +236,22 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Commit and push the approved release revision, complete the read-only cost/model/preflight
-   gate, then deploy immutable images, identities, secrets, API, pipeline, and push privately.
-5. Stop with full private health/OIDC/IAM/digest/cost evidence before the separate Phase 8 public
-   `allUsers` approval.
+4. Obtain owner authorization for one corrected private health request against the deployment URL
+   `https://verity-291098081728.us-central1.run.app`; do not change IAM or redeploy first.
+5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
+   gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm
    Firestore/Pub/Sub/Trace/Logging evidence and an autonomously filed Issue, then run all deployed
    catalogue URLs plus dedup.
 7. Add broader provenance, recovery leases/outbox, image-digest pinning, and stronger egress after
    the hackathon submission unless a live test exposes an earlier need.
 8. Attach an in-app Browser tab for final interactive UI, architecture-page, and screenshot QA.
+
+The post-Phase-8 checklist is prepared in
+[JUDGE-SIMULATION-TEST-PLAN.md](JUDGE-SIMULATION-TEST-PLAN.md). The submitted service must remain
+publicly testable throughout the official September 1–October 1 judging period. Keep min instances
+at zero and do not include the live resources in cost cleanup or teardown before October 2 without
+owner approval.
 
 ## Inputs needed from the project owner
 

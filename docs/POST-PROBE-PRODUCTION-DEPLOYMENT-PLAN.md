@@ -5,7 +5,8 @@
 - **Region:** `us-central1`
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
-- **Execution status:** paused at the Phase 4 hard stop after a rejected build submission; Phase 8
+- **Execution status:** stopped during the Phase 7 private health gate after Phases 4–6 and the
+  private API/pipeline creation completed; no Phase 7 push IAM/subscription exists and Phase 8
   remains closed
 
 ## Goal
