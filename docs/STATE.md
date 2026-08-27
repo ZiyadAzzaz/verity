@@ -18,6 +18,10 @@ approximately $25; hard review gates are documented in
 [WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md](WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
+**Google Cloud visual inspection:**
+[GOOGLE-CLOUD-CONSOLE-INSPECTION.md](GOOGLE-CLOUD-CONSOLE-INSPECTION.md) gives the owner exact
+read-only Console steps, expected values, prohibited controls, and a response template.
+
 This is the current source of truth. Older status, review, handover, and completion documents
 are historical snapshots and retain their original evidence, dates, and test counts.
 
