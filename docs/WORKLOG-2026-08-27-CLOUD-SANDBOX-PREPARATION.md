@@ -10,8 +10,12 @@
 - **Current revision before this record:** `b0aadbc`
 - **Authorized rerun revision:** `b3a3e0e`
 - **Validator-launch correction:** `0a43e8e`
-- **Status:** second attempt stopped before job execution; validator-launch fix complete; new rerun
-  approval required
+- **Status:** superseded by the completed third-attempt record; production approval remains closed
+
+**Follow-up:**
+[WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md](WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md)
+records the local pre-flight, packaging assessment, real execution, five explicit denials,
+Firestore 404, logging-reader repair, cost, and next owner decision.
 
 ## Objective and boundary
 

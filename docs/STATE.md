@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md](WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md).
+[WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md](WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Google Cloud visual inspection:**
@@ -35,13 +35,13 @@ service account with zero project or discovered resource-level IAM bindings. Pub
 Google OIDC instead of a
 URL secret.
 
-It is not yet a finished hackathon submission. The authorized sandbox-probe rerun created the
-no-role identity, sentinels, immutable image, and private Cloud Run Job, but the local validator
-could not import the repository package. The run stopped before job execution; all six denial
-checks remain unexecuted. The deterministic module-launch defect is fixed and locally validated,
-but a new live invocation requires owner approval. Production remains fail-closed until a real
-sandbox task steals its metadata token and proves that all six sensitive project APIs deny it. See
-[WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md](WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md).
+It is not yet a finished hackathon submission. The third sandbox probe ran the real no-role
+container and recovered five explicit 403 denials, but Firestore returned 404 because the
+`(default)` database does not exist. This is not acceptable as IAM-denial evidence. The Cloud
+Logging query defects found afterward are fixed and fully tested. Creating the one-time-location
+Firestore database and running another probe both require explicit owner approval. Production
+remains fail-closed until validator-produced JSON contains six explicit 401/403 results. See
+[WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md](WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md).
 
 The Firestore and Pub/Sub adapters have now also passed Google's official local emulators with no
 account or credentials. This reduces adapter and transaction risk but is not live-cloud evidence.
