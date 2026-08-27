@@ -100,6 +100,13 @@ $sandboxImage = Invoke-Text gcloud artifacts docker images describe $sandboxImag
 if ($sandboxImage -notmatch '@sha256:[0-9a-f]{64}$') {
     throw "Artifact Registry did not return an immutable sandbox image digest."
 }
+$sandboxJobExists = Test-Native gcloud run jobs describe verity-sandbox "--region=$Region"
+if ($sandboxJobExists) {
+    Write-Host "Updating existing verity-sandbox Cloud Run Job."
+}
+else {
+    Write-Host "Creating missing verity-sandbox Cloud Run Job."
+}
 Invoke-Checked gcloud run jobs deploy verity-sandbox "--image=$sandboxImage" "--region=$Region" "--service-account=$sandboxServiceAccount" '--task-timeout=3600' '--max-retries=0' '--memory=4Gi' '--cpu=2' '--clear-env-vars' '--clear-secrets' '--clear-volumes' '--clear-volume-mounts' '--clear-network' '--quiet'
 
 Invoke-VerityPython @('scripts/validate_cloud_sandbox_identity.py', '--project', $ProjectId, '--region', $Region, '--job', 'verity-sandbox', '--service-account', $sandboxServiceAccount, '--image', $sandboxImage)

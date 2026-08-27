@@ -186,9 +186,12 @@ def test_sandbox_only_proof_cannot_deploy_the_privileged_application() -> None:
     assert "@sha256:[0-9a-f]{64}$" in script
     assert "agents-cli" not in script
     assert "run services deploy" not in script
+    assert "Test-Native gcloud run jobs describe verity-sandbox" in script
     assert "Invoke-VerityPython" in script
     assert "billing budgets" not in script
     assert '$ErrorActionPreference = "SilentlyContinue"' in script
     assert "$previousErrorActionPreference" in script
     assert "verity-api" not in build
     assert "Dockerfile.sandbox" in build
+    assert "pool:" not in build
+    assert "workerPool" not in build
