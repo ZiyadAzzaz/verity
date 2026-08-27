@@ -16,10 +16,10 @@ COPY app ./app
 COPY verity ./verity
 COPY verity-architecture.html ./verity-architecture.html
 COPY pyproject.toml README.md agents-cli-manifest.yaml ./
+RUN python -m pip install --no-cache-dir --no-deps .
 
 RUN useradd --create-home --uid 10001 verity \
     && chown -R verity:verity /app
 USER 10001
 
 CMD ["sh", "-c", "exec uvicorn app.fast_api_app:app --host 0.0.0.0 --port ${PORT}"]
-

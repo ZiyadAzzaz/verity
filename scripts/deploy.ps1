@@ -1,17 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][ValidatePattern('^[a-z][a-z0-9-]{4,28}[a-z0-9]$')][string]$ProjectId,
     [ValidatePattern('^[a-z]+-[a-z0-9]+[0-9]$')][string]$Region = "us-central1",
-    [string]$ReportRepo = $env:VERITY_REPORT_REPO
+    [string]$ReportRepo
 )
-
-throw @"
-Cloud deployment is paused at the final live-security gate.
-The credential-free request/log-result handoff and no-role sandbox policy are implemented,
-but they have not yet been exercised in the owner's Google Cloud project. Run the deployment
-only after the owner confirms the project and billing, then require
-scripts/validate_cloud_sandbox_identity.py to prove that a stolen metadata token is denied by
-every tested project API. No Google Cloud resources were changed by this invocation.
-"@
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -21,6 +12,31 @@ if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
 $repoRoot = Split-Path -Parent $PSScriptRoot
 . "$PSScriptRoot\_python.ps1"
 $script:VerityPython = Resolve-VerityPython -RepoRoot $repoRoot
+
+# Guard transition authority: docs/CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md records execution
+# verity-sandbox-rcxvn with all six sensitive APIs denied 403 under the zero-role identity.
+# This script intentionally ends with a private service. scripts/publish_production.ps1 is the
+# only production path that can grant allUsers, and it requires the owner's Phase 8 approval.
+
+function Import-RequiredEnvironment {
+    $envFile = Join-Path $repoRoot '.env'
+    if (-not (Test-Path -LiteralPath $envFile)) { return }
+    $allowed = @('VERITY_API_KEY', 'VERITY_GITHUB_TOKEN', 'VERITY_REPORT_REPO')
+    foreach ($rawLine in Get-Content -LiteralPath $envFile) {
+        $line = $rawLine.Trim()
+        if (-not $line -or $line.StartsWith('#') -or -not $line.Contains('=')) { continue }
+        $parts = $line.Split('=', 2)
+        $name = $parts[0].Trim()
+        if ($name -notin $allowed -or [Environment]::GetEnvironmentVariable($name, 'Process')) {
+            continue
+        }
+        $value = $parts[1].Trim()
+        if ($value.Length -ge 2 -and (($value[0] -eq '"' -and $value[-1] -eq '"') -or ($value[0] -eq "'" -and $value[-1] -eq "'"))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+    }
+}
 
 function Invoke-Checked {
     param([Parameter(Mandatory=$true)][string]$File, [Parameter(ValueFromRemainingArguments=$true)][string[]]$Arguments)
@@ -55,13 +71,53 @@ function Test-Native {
     }
 }
 
+function Invoke-AgentsCliIsolated {
+    param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Arguments)
+    # google-agents-cli intentionally copies every key in the project-root .env into
+    # Cloud Run. Verity's .env contains production secrets, so invoke image deployment
+    # from a fresh OS temp directory and pass only the explicit non-secret environment
+    # plus Secret Manager references. Running from anywhere below the repository would
+    # still let its project-root discovery find .env.
+    $isolatedRoot = Join-Path ([System.IO.Path]::GetTempPath()) "verity-agents-cli-$([guid]::NewGuid().ToString('N'))"
+    New-Item -ItemType Directory -Path $isolatedRoot | Out-Null
+    try {
+        Push-Location $isolatedRoot
+        try {
+            Invoke-Checked $script:AgentsCli @Arguments
+        }
+        finally {
+            Pop-Location
+        }
+    }
+    finally {
+        $resolvedTemp = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+        $resolvedIsolated = [System.IO.Path]::GetFullPath($isolatedRoot)
+        if (-not $resolvedIsolated.StartsWith($resolvedTemp, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to clean an agents-cli directory outside the OS temp root: $resolvedIsolated"
+        }
+        Remove-Item -LiteralPath $resolvedIsolated -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Import-RequiredEnvironment
+if (-not $ReportRepo) { $ReportRepo = $env:VERITY_REPORT_REPO }
+
 $apiKey = $env:VERITY_API_KEY
 $githubToken = $env:VERITY_GITHUB_TOKEN
 if (-not $apiKey -or $apiKey.Length -lt 24) { throw "Set VERITY_API_KEY to at least 24 random characters." }
 if (-not $githubToken) { throw "Set VERITY_GITHUB_TOKEN to a fine-grained token with Issues: write." }
 if (-not $ReportRepo -or $ReportRepo -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw "Set VERITY_REPORT_REPO as owner/repository." }
 if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) { throw "Google Cloud SDK (gcloud) is required." }
-if (-not (Get-Command agents-cli -ErrorAction SilentlyContinue)) { throw "Install requirements-deploy.txt in agent-dev first." }
+$agentsCliCommand = Get-Command agents-cli -ErrorAction SilentlyContinue
+if ($agentsCliCommand) {
+    $script:AgentsCli = $agentsCliCommand.Source
+}
+else {
+    $pythonDirectory = Split-Path -Parent $script:VerityPython
+    $candidate = Join-Path $pythonDirectory 'Scripts\agents-cli.exe'
+    if (-not (Test-Path -LiteralPath $candidate)) { throw "Install requirements-deploy.txt in agent-dev first." }
+    $script:AgentsCli = $candidate
+}
 $workingTree = Invoke-Text git status '--porcelain'
 if ($workingTree) { throw "Commit or stash all changes before building deployment images." }
 
@@ -153,15 +209,14 @@ if (-not (Test-Native gcloud pubsub topics describe verification-jobs)) {
 }
 Invoke-VerityPython @('-m', 'scripts.validate_cloud_sandbox_identity', '--project', $ProjectId, '--region', $Region, '--job', 'verity-sandbox', '--service-account', $sandboxServiceAccount, '--image', $sandboxImage)
 
-$commonEnvironment = "VERITY_ENV=cloud,VERITY_ENVIRONMENT=production,VERITY_GEMINI_MODEL=gemini-3.5-flash,VERITY_REPORT_REPO=$ReportRepo,GOOGLE_CLOUD_PROJECT=$ProjectId,GOOGLE_CLOUD_LOCATION=$Region,GOOGLE_GENAI_USE_VERTEXAI=true,VERITY_PUBSUB_OIDC_AUDIENCE=$pubsubAudience,VERITY_PUBSUB_SERVICE_ACCOUNT=$pushServiceAccount"
+$commonEnvironment = "VERITY_ENV=cloud,VERITY_ENVIRONMENT=production,VERITY_GEMINI_MODEL=gemini-3.5-flash,VERITY_REPORT_REPO=$ReportRepo,GOOGLE_CLOUD_PROJECT=$ProjectId,GOOGLE_CLOUD_LOCATION=$Region,GOOGLE_GENAI_USE_VERTEXAI=true,VERITY_PUBSUB_OIDC_AUDIENCE=$pubsubAudience,VERITY_PUBSUB_SERVICE_ACCOUNT=$pushServiceAccount,AGENT_VERSION=$sourceRevision"
 $applicationSecrets = 'VERITY_API_KEY=verity-api-key:latest,VERITY_GITHUB_TOKEN=verity-github-token:latest'
 
-Invoke-Checked agents-cli deploy '--deployment-target' 'cloud_run' '--project' $ProjectId '--region' $Region '--service-name' 'verity' '--service-account' $appServiceAccount '--image' $apiImage '--memory' '2Gi' '--cpu' '1' '--min-instances' '0' '--max-instances' '2' '--concurrency' '4' '--secrets' $applicationSecrets '--update-env-vars' $commonEnvironment
+Invoke-AgentsCliIsolated deploy '--deployment-target' 'cloud_run' '--project' $ProjectId '--region' $Region '--service-name' 'verity' '--service-account' $appServiceAccount '--image' $apiImage '--memory' '2Gi' '--cpu' '1' '--min-instances' '0' '--max-instances' '2' '--concurrency' '4' '--secrets' $applicationSecrets '--update-env-vars' $commonEnvironment '--no-confirm-project'
 
 Invoke-Checked gcloud run jobs deploy verity-pipeline "--image=$apiImage" "--region=$Region" "--service-account=$appServiceAccount" '--command=python' '--args=-m,verity.worker,placeholder' '--task-timeout=3600' '--max-retries=0' '--memory=2Gi' '--cpu=1' "--set-secrets=$applicationSecrets" "--set-env-vars=$commonEnvironment" '--quiet'
 Invoke-Checked gcloud run jobs add-iam-policy-binding verity-pipeline "--region=$Region" "--member=serviceAccount:$appServiceAccount" '--role=roles/run.jobsExecutorWithOverrides' '--quiet'
 
-Invoke-Checked gcloud run services add-iam-policy-binding verity "--region=$Region" '--member=allUsers' '--role=roles/run.invoker' '--quiet'
 $serviceUrl = Invoke-Text gcloud run services describe verity "--region=$Region" '--format=value(status.url)'
 Invoke-Checked gcloud run services add-iam-policy-binding verity "--region=$Region" "--member=serviceAccount:$pushServiceAccount" '--role=roles/run.invoker' '--quiet'
 
@@ -175,5 +230,5 @@ else {
     Invoke-Checked gcloud pubsub subscriptions modify-push-config verity-worker "--push-endpoint=$serviceUrl/internal/pubsub" "--push-auth-service-account=$pushServiceAccount" "--push-auth-token-audience=$pubsubAudience"
 }
 
-Write-Host "Verity deployed: $serviceUrl"
-Write-Host "Job APIs require VERITY_API_KEY; Pub/Sub delivery requires verified Google OIDC."
+Write-Host "Verity deployed privately: $serviceUrl"
+Write-Host "No allUsers binding was granted. Phase 8 requires separate explicit owner approval."

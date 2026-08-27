@@ -140,11 +140,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="job not found")
         return JobView(job=job, trace=await container.store.get_trace(job_id))
 
-    @api.post("/internal/pubsub", status_code=status.HTTP_204_NO_CONTENT)
-    async def consume_pubsub(
-        envelope: dict[str, object],
-        authorization: Annotated[str | None, Header()] = None,
-    ) -> Response:
+    async def require_pubsub_oidc(authorization: str | None) -> None:
         audience = settings.pubsub_oidc_audience
         service_account = settings.pubsub_service_account
         if audience and service_account:
@@ -161,6 +157,21 @@ def create_app(
                 raise HTTPException(status_code=401, detail=str(exc)) from exc
         elif settings.environment == "production":
             raise HTTPException(status_code=503, detail="Pub/Sub OIDC is not configured")
+
+    @api.post("/internal/pubsub/oidc-probe", status_code=status.HTTP_204_NO_CONTENT)
+    async def probe_pubsub_oidc(
+        authorization: Annotated[str | None, Header()] = None,
+    ) -> Response:
+        """Verify the live push identity without launching a production pipeline job."""
+        await require_pubsub_oidc(authorization)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @api.post("/internal/pubsub", status_code=status.HTTP_204_NO_CONTENT)
+    async def consume_pubsub(
+        envelope: dict[str, object],
+        authorization: Annotated[str | None, Header()] = None,
+    ) -> Response:
+        await require_pubsub_oidc(authorization)
         job_id, _message_id = decode_push_envelope(envelope)
         await container.launcher.launch(job_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)

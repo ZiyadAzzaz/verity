@@ -181,13 +181,14 @@ Required evidence before removing either production guard:
 5. Preserve the honest residual-risk statement: no-role IAM closes credential blast radius but
    does not provide offline evaluation, malicious-code attestation, or kernel-exploit immunity.
 
-### P0 — live cloud proof
+### P0 — private production deployment in progress
 
-No `run.app` URL, authenticated Google Cloud project, Vertex call, managed-service Firestore
-transaction, managed Pub/Sub delivery, Cloud Run Job execution, Cloud Trace, or Cloud Logging
-record was available to verify. Local Firestore and Pub/Sub emulator coverage now exists, but
-`gcloud` and `agents-cli` are not installed/authenticated on this machine. Live deployment remains
-a hard submission requirement after the trust boundary is fixed.
+Google Cloud authentication, Firestore, Artifact Registry, Cloud Build, Cloud Run Jobs, Cloud
+Logging, and the six-API no-role sandbox proof are live in `verity-506800`. The production API,
+pipeline job, app/push identities, application secrets, and push subscription were confirmed
+absent in the 2026-08-27 recovery inventory. The approved implementation is moving through local
+release gates before one private deployment. Public `allUsers` access remains a separate Phase 8
+owner checkpoint.
 
 ### P1 — evidence comparability
 
@@ -219,34 +220,35 @@ general provenance enforcement is still required.
 
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
+The current execution evidence is in
+[WORKLOG-2026-08-27-PRODUCTION-DEPLOYMENT.md](WORKLOG-2026-08-27-PRODUCTION-DEPLOYMENT.md).
 
 1. Local static, unit, Docker, image, and isolation gates are complete.
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
-3. Review the proof and
-   [POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md](POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md).
-4. Add the missing random `VERITY_API_KEY` locally, install/validate Agents CLI, resolve package
-   installation and the no-op module-launched worker, then rerun all local/Docker gates.
-5. After separate approval, transition the two guards and deploy privately in the documented
-   dependency/IAM order with per-action cost reporting.
-6. Run one unseen source through the real deployed path, confirm Firestore/Pub/Sub/Trace/Logging
-   evidence and an autonomously filed Issue, then run all deployed catalogue URLs plus dedup.
+3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
+   and the local/Docker gates are resolved and validated.
+4. Commit and push the approved release revision, complete the read-only cost/model/preflight
+   gate, then deploy immutable images, identities, secrets, API, pipeline, and push privately.
+5. Stop with full private health/OIDC/IAM/digest/cost evidence before the separate Phase 8 public
+   `allUsers` approval.
+6. After that approval, run one unseen source through the real deployed path, confirm
+   Firestore/Pub/Sub/Trace/Logging evidence and an autonomously filed Issue, then run all deployed
+   catalogue URLs plus dedup.
 7. Add broader provenance, recovery leases/outbox, image-digest pinning, and stronger egress after
    the hackathon submission unless a live test exposes an earlier need.
 8. Attach an in-app Browser tab for final interactive UI, architecture-page, and screenshot QA.
 
 ## Inputs needed from the project owner
 
-Do not paste credentials into chat. Before an approved production deployment:
+Do not paste credentials into chat. Before public exposure:
 
 - attach/open the in-app Browser when you want the visual interaction pass;
 - inspect the posted Billing Report using the Console guide;
-- generate a separate random `VERITY_API_KEY` of at least 32 bytes and save it only in local
-  `.env`; the GitHub token and report repository keys are already present;
-- explicitly approve the prepared production deployment plan; and
+- review the private Phase 0–7 checkpoint and explicitly approve Phase 8;
 - allow the configured AI Studio quota to reset or replace the key locally in `.env` so the final
   eight-source catalogue can run; never paste the key into chat;
-- keep `gcloud` authenticated; install Agents CLI only in the approved implementation phase.
+- keep `gcloud` authenticated.
 
-Describe Verity as a **locally proven MVP with a live-validated no-role cloud sandbox boundary**.
-Do not describe the full product as deployed or submission-complete until the separately approved
-API/pipeline deployment and end-to-end evidence pass.
+Describe Verity as a **locally proven MVP with a live-validated no-role cloud sandbox boundary**
+until the private deployment evidence is complete. Do not describe it as public or
+submission-complete until Phase 8 and the end-to-end evidence pass.

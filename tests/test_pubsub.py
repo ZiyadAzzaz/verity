@@ -126,3 +126,29 @@ def test_pubsub_route_verifies_oidc_before_launching(monkeypatch) -> None:
         "https://verity.internal/pubsub/project",
         "verity-pubsub@project.iam.gserviceaccount.com",
     )
+
+
+def test_pubsub_oidc_probe_verifies_without_launching(monkeypatch) -> None:
+    settings = Settings(
+        _env_file=None,
+        environment="test",
+        pubsub_oidc_audience="https://verity.internal/pubsub/project",
+        pubsub_service_account="verity-pubsub@verity-prod.iam.gserviceaccount.com",
+    )
+    container = _FakeContainer()
+    observed: list[str | None] = []
+
+    def verify(authorization, *, audience, service_account_email):
+        observed.append(authorization)
+        assert audience == "https://verity.internal/pubsub/project"
+        assert service_account_email == "verity-pubsub@verity-prod.iam.gserviceaccount.com"
+
+    monkeypatch.setattr("verity.api.verify_pubsub_oidc", verify)
+    with TestClient(create_app(settings=settings, container=container)) as client:  # type: ignore[arg-type]
+        response = client.post(
+            "/internal/pubsub/oidc-probe", headers={"Authorization": "Bearer signed-token"}
+        )
+
+    assert response.status_code == 204
+    assert observed == ["Bearer signed-token"]
+    assert container.launched == []

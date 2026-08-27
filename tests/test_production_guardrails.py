@@ -32,9 +32,12 @@ def build(**overrides: object) -> Settings:
     return Settings(_env_file=None, **{**PRODUCTION, **overrides})  # type: ignore[arg-type]
 
 
-def test_cloud_production_is_fail_closed_until_the_sandbox_is_credential_free() -> None:
-    with pytest.raises(ValidationError, match="production Cloud Run sandbox is disabled"):
-        build()
+def test_complete_secure_cloud_production_configuration_is_accepted() -> None:
+    settings = build()
+    assert settings.store == "firestore"
+    assert settings.messaging == "pubsub"
+    assert settings.sandbox == "cloud_run"
+    assert settings.llm == "vertex"
 
 
 def test_production_rejects_the_host_subprocess_sandbox() -> None:
@@ -122,18 +125,27 @@ def test_production_pubsub_identity_must_belong_to_the_configured_project() -> N
         build(pubsub_service_account="verity-pubsub@other-project.iam.gserviceaccount.com")
 
 
-def test_deployment_script_stops_before_the_first_gcloud_mutation() -> None:
+def test_deployment_transition_is_bound_to_the_passing_live_proof() -> None:
     script = Path("scripts/deploy.ps1").read_text(encoding="utf-8")
-    guard = script.index("Cloud deployment is paused at the final live-security gate")
-    first_mutation = script.index("Invoke-Checked gcloud config set project")
-    assert guard < first_mutation
+    proof = Path("docs/CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md").read_text(encoding="utf-8")
+    assert "verity-sandbox-rcxvn" in script
+    assert '"passed": true' in proof
+    for check in (
+        "cloud_run_execute",
+        "cloud_storage_list",
+        "firestore_write",
+        "pubsub_publish",
+        "secret_manager_read",
+        "vertex_ai_list",
+    ):
+        assert f'"{check}": 403' in proof
 
 
 def test_deployment_blueprint_enforces_the_scoped_cloud_boundary() -> None:
     script = Path("scripts/deploy.ps1").read_text(encoding="utf-8")
     sandbox_deploy = script.index("run jobs deploy verity-sandbox")
     identity_gate = script.index("'scripts.validate_cloud_sandbox_identity'")
-    app_deploy = script.index("agents-cli deploy")
+    app_deploy = script.index("Invoke-AgentsCliIsolated deploy")
 
     assert "roles/datastore.user" in script  # app role and explicit legacy removal
     assert "sandboxRoles.Count -gt 0" in script
@@ -152,6 +164,26 @@ def test_deployment_blueprint_enforces_the_scoped_cloud_boundary() -> None:
     assert "Invoke-VerityPython" in script
     assert "billing budgets" not in script
     assert "BudgetUsd" not in script
+    assert "GetTempPath" in script
+    assert "Invoke-AgentsCliIsolated" in script
+    assert "AGENT_VERSION=$sourceRevision" in script
+
+
+def test_private_deploy_cannot_make_the_service_public() -> None:
+    private_script = Path("scripts/deploy.ps1").read_text(encoding="utf-8")
+    public_script = Path("scripts/publish_production.ps1").read_text(encoding="utf-8")
+    assert "--member=allUsers" not in private_script
+    assert "--member=allUsers" in public_script
+    assert "OwnerApprovedPhase8" in public_script
+    assert "get-iam-policy" in public_script
+
+
+def test_api_image_installs_project_metadata_and_console_scripts() -> None:
+    dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
+    install = dockerfile.index("RUN python -m pip install --no-cache-dir --no-deps .")
+    copy_project = dockerfile.index("COPY pyproject.toml README.md agents-cli-manifest.yaml ./")
+    user = dockerfile.index("USER 10001")
+    assert copy_project < install < user
 
 
 def test_minimal_sandbox_image_has_no_google_cloud_client() -> None:

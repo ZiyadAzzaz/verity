@@ -1,10 +1,11 @@
-# Post-Probe Production Deployment Plan — Prepared, Not Authorized
+# Post-Probe Production Deployment Plan — Authorized Through Private Checkpoint
 
 - **Prepared:** 2026-08-27
 - **Project:** `verity-506800`
 - **Region:** `us-central1`
 - **Security gate:** live sandbox proof passed 6/6
-- **Execution status:** **DO NOT EXECUTE without a new explicit owner approval**
+- **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
+- **Execution status:** authorized only through the private checkpoint; Phase 8 remains closed
 
 ## Goal
 
@@ -23,8 +24,10 @@ The owner does not need to send secret values in chat. Before the approved deplo
 3. retain `VERITY_REPORT_REPO` for the intended repository; and
 4. confirm the Billing Report for `verity-506800` has no unexpected charge.
 
-The current process environment has none of these exported, and `.env` currently lacks
-`VERITY_API_KEY`. Deployment code must validate presence/length without printing values.
+All three inputs were confirmed present locally by presence and length only. Deployment code loads
+only these allow-listed values and never prints them. `agents-cli` must run from an isolated OS
+temporary directory because version 1.4.0 otherwise copies every repository `.env` entry into
+Cloud Run as plaintext environment variables.
 
 ## Phase 0 — Save the proof and open the implementation gate
 
@@ -228,9 +231,9 @@ arguments, logs, Markdown, Git, or build context.
 Stop while the service is still private if health, configuration, image digest, identity, or
 secret wiring is wrong.
 
-## Phase 8 — Configure authenticated delivery, then public API access last
+## Private checkpoint after Phase 7 — authenticated delivery evidence
 
-1. Grant the dedicated push identity Run Invoker on service `verity`.
+1. Grant the dedicated push identity Run Invoker on service `verity` while it remains private.
 2. Grant the Google-managed Pub/Sub service agent token-creator on that push identity.
 3. Create subscription `verity-worker` against topic `verification-jobs` with:
    - push endpoint `<service-url>/internal/pubsub`;
@@ -238,11 +241,18 @@ secret wiring is wrong.
    - exact configured audience;
    - 600-second ack deadline; and
    - one-day retention.
-4. Verify a real Pub/Sub delivery is accepted only with valid Google OIDC.
+4. Verify a real Pub/Sub delivery against `/internal/pubsub/oidc-probe` is accepted only with valid
+   Google OIDC; this probe performs the same verification as the worker route but launches no job.
 5. Verify direct unauthenticated and wrong-audience requests are rejected.
-6. Only after those checks, grant `allUsers` Run Invoker to expose the HTTP API.
-7. Confirm protected endpoints still require the separate `VERITY_API_KEY`; `/healthz` and static
-   demo pages may remain intentionally public.
+6. Record private health, exact IAM, image digests, OIDC evidence, rejection evidence, and
+   cumulative cost. Stop for explicit owner review.
+
+## Phase 8 — Public API access, separately approved
+
+Only after the owner reviews the private checkpoint, run `scripts/publish_production.ps1` with its
+mandatory `-OwnerApprovedPhase8` switch to grant `allUsers` Run Invoker. The main private deploy
+script contains no `allUsers` mutation. Then confirm protected endpoints still require the
+separate `VERITY_API_KEY`; `/healthz` and static demo pages may remain intentionally public.
 
 Public access is last so a broken or weakly authenticated deployment is never exposed during
 assembly.
@@ -303,12 +313,21 @@ Stop immediately and do not retry automatically if:
 Do not delete, roll back, make public, or alter IAM to recover from a stop without reporting the
 exact state and obtaining any new authority required.
 
-## Exact approval gate
+## Google Agent Framework submission narrative
 
-Nothing in this document authorizes execution. Recommended owner wording after reviewing the live
-proof and filling the missing API key locally:
+The durable runtime uses real typed Google ADK `LlmAgent` instances for Parser and Debug model
+reasoning through `verity.llm`. Environment and Reporter are deterministic Python by design:
+Environment executes and measures an already selected reproduction plan inside the isolation
+boundary, while Reporter compares recorded evidence and persists a verdict. Adding model reasoning
+to those two steps would reduce determinism without adding useful agency. The separate declarative
+graph is illustrative; the real Parser/Debug calls are the framework-backed runtime evidence.
+
+## Exact Phase 8 approval gate
+
+Phases 0–7 are authorized. Public exposure is not. Recommended owner wording after reviewing the
+private checkpoint:
 
 ```text
-Authorize implementation and execution of POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md in
-verity-506800, subject to the existing cost, billing, security, stop, documentation, and Git rules.
+Authorize Phase 8 public exposure for the private Verity deployment described in the checkpoint
+report, then proceed through Phases 9–10 subject to the standing stop rules.
 ```

@@ -28,3 +28,7 @@ def main() -> None:
     parser.add_argument("job_id")
     args = parser.parse_args()
     asyncio.run(_run(args.job_id))
+
+
+if __name__ == "__main__":
+    main()
