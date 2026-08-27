@@ -14,6 +14,10 @@
 approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
+**Latest work record:**
+[WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md](WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md).
+Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
+
 This is the current source of truth. Older status, review, handover, and completion documents
 are historical snapshots and retain their original evidence, dates, and test counts.
 
@@ -27,10 +31,12 @@ service account with zero project or discovered resource-level IAM bindings. Pub
 Google OIDC instead of a
 URL secret.
 
-It is not yet a finished hackathon submission because the required Google Cloud path has never
-run. Production remains fail-closed until a real sandbox task steals its metadata token and proves
-that all sensitive project APIs deny it. See
-[SCOPED-CLOUD-SECURITY-FIX.md](SCOPED-CLOUD-SECURITY-FIX.md).
+It is not yet a finished hackathon submission. The first sandbox-probe attempt enabled the
+approved APIs but stopped before creating resources because an expected missing-resource lookup
+was incorrectly treated as a terminating PowerShell error. That defect is fixed and pushed, but
+the probe has not been retried. Production remains fail-closed until a real sandbox task steals
+its metadata token and proves that all six sensitive project APIs deny it. See
+[WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md](WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md).
 
 The Firestore and Pub/Sub adapters have now also passed Google's official local emulators with no
 account or credentials. This reduces adapter and transaction risk but is not live-cloud evidence.
