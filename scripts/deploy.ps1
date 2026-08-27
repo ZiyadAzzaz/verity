@@ -1,7 +1,6 @@
 param(
     [Parameter(Mandatory=$true)][ValidatePattern('^[a-z][a-z0-9-]{4,28}[a-z0-9]$')][string]$ProjectId,
     [ValidatePattern('^[a-z]+-[a-z0-9]+[0-9]$')][string]$Region = "us-central1",
-    [ValidateRange(1, 150)][decimal]$BudgetUsd = 25,
     [string]$ReportRepo = $env:VERITY_REPORT_REPO
 )
 
@@ -19,6 +18,9 @@ $ErrorActionPreference = "Stop"
 if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
     $PSNativeCommandUseErrorActionPreference = $true
 }
+$repoRoot = Split-Path -Parent $PSScriptRoot
+. "$PSScriptRoot\_python.ps1"
+$script:VerityPython = Resolve-VerityPython -RepoRoot $repoRoot
 
 function Invoke-Checked {
     param([Parameter(Mandatory=$true)][string]$File, [Parameter(ValueFromRemainingArguments=$true)][string[]]$Arguments)
@@ -58,10 +60,6 @@ Invoke-Checked gcloud services enable run.googleapis.com cloudbuild.googleapis.c
 
 $billingAccount = (Invoke-Text gcloud billing projects describe $ProjectId '--format=value(billingAccountName)').Replace('billingAccounts/','')
 if (-not $billingAccount) { throw "The project must be linked to a billing account before deployment." }
-$budgetExists = Invoke-Text gcloud billing budgets list "--billing-account=$billingAccount" '--filter=displayName=Verity hackathon budget' '--format=value(name)'
-if (-not $budgetExists) {
-    Invoke-Checked gcloud billing budgets create "--billing-account=$billingAccount" '--display-name=Verity hackathon budget' "--budget-amount=${BudgetUsd}USD" '--threshold-rule=percent=0.5' '--threshold-rule=percent=0.9' '--threshold-rule=percent=1.0'
-}
 
 if (-not (Test-Native gcloud firestore databases describe '--database=(default)')) {
     Invoke-Checked gcloud firestore databases create '--database=(default)' "--location=$Region" '--type=firestore-native'
@@ -143,7 +141,7 @@ Invoke-Checked gcloud run jobs add-iam-policy-binding verity-sandbox "--region=$
 if (-not (Test-Native gcloud pubsub topics describe verification-jobs)) {
     Invoke-Checked gcloud pubsub topics create verification-jobs
 }
-Invoke-Checked python scripts/validate_cloud_sandbox_identity.py '--project' $ProjectId '--region' $Region '--job' 'verity-sandbox' '--service-account' $sandboxServiceAccount '--image' $sandboxImage
+Invoke-VerityPython @('scripts/validate_cloud_sandbox_identity.py', '--project', $ProjectId, '--region', $Region, '--job', 'verity-sandbox', '--service-account', $sandboxServiceAccount, '--image', $sandboxImage)
 
 $commonEnvironment = "VERITY_ENV=cloud,VERITY_ENVIRONMENT=production,VERITY_GEMINI_MODEL=gemini-3.5-flash,VERITY_REPORT_REPO=$ReportRepo,GOOGLE_CLOUD_PROJECT=$ProjectId,GOOGLE_CLOUD_LOCATION=$Region,GOOGLE_GENAI_USE_VERTEXAI=true,VERITY_PUBSUB_OIDC_AUDIENCE=$pubsubAudience,VERITY_PUBSUB_SERVICE_ACCOUNT=$pushServiceAccount"
 $applicationSecrets = 'VERITY_API_KEY=verity-api-key:latest,VERITY_GITHUB_TOKEN=verity-github-token:latest'

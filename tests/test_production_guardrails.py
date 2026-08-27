@@ -132,7 +132,7 @@ def test_deployment_script_stops_before_the_first_gcloud_mutation() -> None:
 def test_deployment_blueprint_enforces_the_scoped_cloud_boundary() -> None:
     script = Path("scripts/deploy.ps1").read_text(encoding="utf-8")
     sandbox_deploy = script.index("run jobs deploy verity-sandbox")
-    identity_gate = script.index("Invoke-Checked python scripts/validate_cloud_sandbox_identity.py")
+    identity_gate = script.index("'scripts/validate_cloud_sandbox_identity.py'")
     app_deploy = script.index("agents-cli deploy")
 
     assert "roles/datastore.user" in script  # app role and explicit legacy removal
@@ -149,6 +149,9 @@ def test_deployment_blueprint_enforces_the_scoped_cloud_boundary() -> None:
     assert sandbox_deploy < identity_gate < app_deploy
     assert "VERITY_PUBSUB_VERIFICATION_TOKEN" not in script
     assert "?token=" not in script
+    assert "Invoke-VerityPython" in script
+    assert "billing budgets" not in script
+    assert "BudgetUsd" not in script
 
 
 def test_minimal_sandbox_image_has_no_google_cloud_client() -> None:
@@ -178,10 +181,12 @@ def test_sandbox_only_proof_cannot_deploy_the_privileged_application() -> None:
     assert "--clear-volumes" in script
     assert "--clear-network" in script
     assert "validate_cloud_sandbox_identity.py" in script
-    assert "--image' $sandboxImage" in script
+    assert "'--image', $sandboxImage" in script
     assert "image_summary.fully_qualified_digest" in script
     assert "@sha256:[0-9a-f]{64}$" in script
     assert "agents-cli" not in script
     assert "run services deploy" not in script
+    assert "Invoke-VerityPython" in script
+    assert "billing budgets" not in script
     assert "verity-api" not in build
     assert "Dockerfile.sandbox" in build

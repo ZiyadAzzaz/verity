@@ -10,6 +10,10 @@
 
 **Verdicts:** https://github.com/ZiyadAzzaz/verity-reports (public)
 
+**Live cloud project:** `verity-506800`; $450 promotional credit available; target total spend
+approximately $25; hard review gates are documented in
+[CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
+
 This is the current source of truth. Older status, review, handover, and completion documents
 are historical snapshots and retain their original evidence, dates, and test counts.
 

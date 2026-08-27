@@ -48,6 +48,7 @@ genuine result returns instantly without a single model call.
 | [docs/SCOPED-CLOUD-SECURITY-FIX.md](docs/SCOPED-CLOUD-SECURITY-FIX.md) | Credential-free Cloud Run handoff, no-role identity gate, OIDC fix, and residual risks |
 | [docs/SCOPED-SECURITY-VALIDATION-2026-08-25.md](docs/SCOPED-SECURITY-VALIDATION-2026-08-25.md) | Exact local gates, live rerun evidence, quota blocker, and cloud acceptance status |
 | [docs/EMULATOR-VALIDATION-2026-08-25.md](docs/EMULATOR-VALIDATION-2026-08-25.md) | Official Firestore/Pub/Sub emulator evidence and exact remaining live-cloud gaps |
+| [docs/CLOUD-LIVE-SAFETY.md](docs/CLOUD-LIVE-SAFETY.md) | Current project, $450 credit truth, ~$25 target, hard cost gates, and billing boundary |
 | [docs/AUDIT-2026-08-24.md](docs/AUDIT-2026-08-24.md) | Deep code, runtime, security, deployment, and artifact audit |
 | [docs/NEXT-IMPLEMENTATION.md](docs/NEXT-IMPLEMENTATION.md) | Exact evidence, recovery, secure-cloud, and staging gates |
 | [docs/REVIEW.md](docs/REVIEW.md) | Historical 2026-08-23 review |

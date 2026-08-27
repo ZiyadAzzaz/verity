@@ -8,6 +8,9 @@ $ErrorActionPreference = "Stop"
 if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
     $PSNativeCommandUseErrorActionPreference = $true
 }
+$repoRoot = Split-Path -Parent $PSScriptRoot
+. "$PSScriptRoot\_python.ps1"
+$script:VerityPython = Resolve-VerityPython -RepoRoot $repoRoot
 
 function Invoke-Checked {
     param([Parameter(Mandatory=$true)][string]$File, [Parameter(ValueFromRemainingArguments=$true)][string[]]$Arguments)
@@ -33,7 +36,6 @@ function Test-Native {
 }
 
 if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) { throw "Google Cloud SDK (gcloud) is required." }
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) { throw "Python with requirements-runtime.txt installed is required." }
 $workingTree = Invoke-Text git status '--porcelain'
 if ($workingTree) { throw "Commit or stash all changes before building the security-proof image." }
 
@@ -90,6 +92,6 @@ if ($sandboxImage -notmatch '@sha256:[0-9a-f]{64}$') {
 }
 Invoke-Checked gcloud run jobs deploy verity-sandbox "--image=$sandboxImage" "--region=$Region" "--service-account=$sandboxServiceAccount" '--task-timeout=3600' '--max-retries=0' '--memory=4Gi' '--cpu=2' '--clear-env-vars' '--clear-secrets' '--clear-volumes' '--clear-volume-mounts' '--clear-network' '--quiet'
 
-Invoke-Checked python scripts/validate_cloud_sandbox_identity.py '--project' $ProjectId '--region' $Region '--job' 'verity-sandbox' '--service-account' $sandboxServiceAccount '--image' $sandboxImage
+Invoke-VerityPython @('scripts/validate_cloud_sandbox_identity.py', '--project', $ProjectId, '--region', $Region, '--job', 'verity-sandbox', '--service-account', $sandboxServiceAccount, '--image', $sandboxImage)
 Write-Host "Sandbox-only proof passed. The privileged Verity app was not deployed."
 Write-Host "Keep scripts/deploy.ps1 and the production configuration guard closed until the owner reviews this evidence."
