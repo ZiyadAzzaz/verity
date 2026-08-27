@@ -512,3 +512,78 @@ Professional assessment: stopping remains correct. The healthy revision and logg
 traffic argue against an application or general URL outage, but private authenticated health is
 still unproven. Do not assemble OIDC or expose Phase 8 until one client path returns the actual
 Verity health JSON.
+
+## Authorized direct-curl health continuation
+
+The owner authorized exactly one direct private `/healthz` request using Windows `curl.exe`, with
+a fresh gcloud identity token stored only in a securely cleaned OS-temp curl configuration. No IAM
+or deployment change was authorized; remaining private Phase 7 work was conditional on health.
+
+Preflight passed:
+
+- `curl.exe` 8.20.0 with Schannel was available;
+- local `HEAD` and `origin/main` matched
+  `832d63eeb39b0471bdec10b64116b89c8d054c39` with a clean tree;
+- revision, immutable digest, and app identity were unchanged; and
+- service IAM remained empty.
+
+The request targeted
+`https://verity-291098081728.us-central1.run.app/healthz`. The token never appeared in the command
+text, process arguments, output, Markdown, or Git: it was written as an Authorization header inside
+a random OS-temp curl config, cleared from memory variables, and the exact file was removed in a
+`finally` block before reporting.
+
+Observed result:
+
+```json
+{
+  "curlExit": 0,
+  "httpStatus": 404,
+  "verityJson": false,
+  "bodyKind": "google-front-end-html",
+  "tempConfigRemoved": true
+}
+```
+
+Because the response was not Verity health JSON, the conditional Phase 7 continuation remained
+closed. No rejection probe, IAM binding, subscription, OIDC action, or Phase 8 action followed.
+
+### Server-side read-only proof after curl
+
+Cloud Run v2 Admin API returned:
+
+- URI `https://verity-7pauedpknq-uc.a.run.app`;
+- ingress `INGRESS_TRAFFIC_ALL`;
+- default URI not disabled;
+- invoker IAM enforcement not disabled;
+- no custom audience; and
+- effective operator permission `run.routes.invoke` on the exact service.
+
+A fresh ID token inspection showed `RS256`, a Google key ID, a normal 342-character signature
+segment, and `signatureRedacted=false`; the credential was never printed. The official Cloud Run
+404 checks for internal ingress, disabled default URI, VPC Service Controls, missing invoke
+permission, and redacted signature are therefore not supported by the observed state. The exact
+cause remains unresolved.
+
+### Next bounded diagnostic
+
+Do not repeat another Windows request or mutate IAM speculatively. The next useful discriminator is
+one request from Google Cloud Shell, which changes both client network and credential execution
+environment while preserving the private service and its IAM. The owner should run:
+
+```bash
+gcloud config set project verity-506800
+gcloud run services proxy verity --region=us-central1 --port=8080 >/tmp/verity-proxy.log 2>&1 &
+proxy_pid=$!
+trap 'kill "$proxy_pid" 2>/dev/null || true' EXIT
+sleep 5
+curl -i --max-time 120 http://127.0.0.1:8080/healthz
+```
+
+Send back only the HTTP status and body/error; never send a token or credential file. A healthy
+Verity JSON response permits resuming the remaining private Phase 7 gates under the prior owner
+authorization. Another front-end 404 would justify escalation to Google Cloud support/service
+health rather than more client retries or IAM changes.
+
+Incremental cloud cost remains `$0.00`: the curl request did not reach the container, and Admin API
+reads/token issuance have no direct usage charge.

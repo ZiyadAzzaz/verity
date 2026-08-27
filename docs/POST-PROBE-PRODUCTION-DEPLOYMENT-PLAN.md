@@ -6,9 +6,9 @@
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
 - **Execution status:** stopped during the Phase 7 private health gate after Phases 4–6 and the
-  private API/pipeline creation completed; two direct attempts and one official gcloud proxy
-  attempt returned unlogged front-end 404 responses; no Phase 7 push IAM/subscription exists and
-  Phase 8 remains closed
+  private API/pipeline creation completed; two PowerShell attempts, one official gcloud proxy, and
+  one direct curl attempt returned unlogged front-end 404 responses; no Phase 7 push
+  IAM/subscription exists and Phase 8 remains closed
 
 ## Goal
 
@@ -231,8 +231,9 @@ arguments, logs, Markdown, Git, or build context.
    `-m verity.worker <job_id>` and keeps command `python`.
 6. Invoke authenticated `/healthz` as the operator and require healthy Firestore, Pub/Sub, Vertex,
    and configuration startup. Do not accept a Google-front-end response as application evidence.
-   On this Windows host, both `Invoke-WebRequest` and the official gcloud proxy returned unlogged
-   front-end 404 responses; the next diagnostic must use a distinct, preflighted client path.
+   On this Windows host, `Invoke-WebRequest`, the official gcloud proxy, and direct `curl.exe`
+   returned unlogged front-end 404 responses despite effective invoke permission and open ingress.
+   The next diagnostic must run from Google Cloud Shell rather than repeat the local path.
 
 Stop while the service is still private if health, configuration, image digest, identity, or
 secret wiring is wrong.
