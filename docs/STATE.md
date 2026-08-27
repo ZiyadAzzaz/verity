@@ -31,11 +31,12 @@ service account with zero project or discovered resource-level IAM bindings. Pub
 Google OIDC instead of a
 URL secret.
 
-It is not yet a finished hackathon submission. The first sandbox-probe attempt enabled the
-approved APIs but stopped before creating resources because an expected missing-resource lookup
-was incorrectly treated as a terminating PowerShell error. That defect is fixed and pushed, but
-the probe has not been retried. Production remains fail-closed until a real sandbox task steals
-its metadata token and proves that all six sensitive project APIs deny it. See
+It is not yet a finished hackathon submission. The authorized sandbox-probe rerun created the
+no-role identity, sentinels, immutable image, and private Cloud Run Job, but the local validator
+could not import the repository package. The run stopped before job execution; all six denial
+checks remain unexecuted. The deterministic module-launch defect is fixed and locally validated,
+but a new live invocation requires owner approval. Production remains fail-closed until a real
+sandbox task steals its metadata token and proves that all six sensitive project APIs deny it. See
 [WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md](WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md).
 
 The Firestore and Pub/Sub adapters have now also passed Google's official local emulators with no
