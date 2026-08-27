@@ -188,5 +188,7 @@ def test_sandbox_only_proof_cannot_deploy_the_privileged_application() -> None:
     assert "run services deploy" not in script
     assert "Invoke-VerityPython" in script
     assert "billing budgets" not in script
+    assert '$ErrorActionPreference = "SilentlyContinue"' in script
+    assert "$previousErrorActionPreference" in script
     assert "verity-api" not in build
     assert "Dockerfile.sandbox" in build

@@ -31,8 +31,18 @@ function Invoke-Text {
 
 function Test-Native {
     param([Parameter(Mandatory=$true)][string]$File, [Parameter(ValueFromRemainingArguments=$true)][string[]]$Arguments)
-    & $File @Arguments *> $null
-    return $LASTEXITCODE -eq 0
+    # gcloud.ps1 emits a PowerShell error record for normal negative existence
+    # probes. Suppress it locally so NOT_FOUND is returned as false without
+    # weakening fail-fast behavior for mutation commands.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "SilentlyContinue"
+        & $File @Arguments *> $null
+        return $LASTEXITCODE -eq 0
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
 }
 
 if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) { throw "Google Cloud SDK (gcloud) is required." }
