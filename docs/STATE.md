@@ -18,6 +18,11 @@ approximately $25; hard review gates are documented in
 [WORKLOG-2026-08-27-PRODUCTION-DEPLOYMENT.md](WORKLOG-2026-08-27-PRODUCTION-DEPLOYMENT.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
+**Reset-to-current consolidated report:**
+[RESET-TO-CURRENT-CONSOLIDATED-REPORT-2026-08-27.md](RESET-TO-CURRENT-CONSOLIDATED-REPORT-2026-08-27.md)
+summarizes every owner authorization, action, result, cost, Git checkpoint, and the exact current
+state from the resumed session through the latest private-health stop.
+
 **Google Cloud visual inspection:**
 [GOOGLE-CLOUD-CONSOLE-INSPECTION.md](GOOGLE-CLOUD-CONSOLE-INSPECTION.md) gives the owner exact
 read-only Console steps, expected values, prohibited controls, and a response template.
