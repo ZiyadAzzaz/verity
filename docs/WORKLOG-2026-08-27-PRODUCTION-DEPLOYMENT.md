@@ -163,13 +163,22 @@ plus one Class A write, is below `$0.00008` using the official
 through the current CLI surface. This leaves cumulative new exposure from the production attempt
 effectively `$0.00` and the project far below both the ~$25 target and every stop threshold.
 
-The hard-stop rule was honored: there was no corrected retry. The next authorized attempt must
-pass the entire substitutions flag as one quoted PowerShell argument:
+The hard-stop rule was honored: there was no corrected retry. Evidence-only commits after the stop
+advance `main`, so the next authorized attempt must build from a clean detached worktree of the
+tested release commit, not from the current `.` while labeling it as an older revision. It must
+also pass the entire substitutions flag as one quoted PowerShell argument:
 
 ```powershell
+$releaseRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'verity-release-1cc45ee04507'
+git worktree add --detach $releaseRoot 1cc45ee04507ab93f18d093b89e6df0fed8c4c43
+Push-Location $releaseRoot
 gcloud builds submit --project=verity-506800 --config=cloudbuild.yaml `
   '--substitutions=_REGION=us-central1,_REPOSITORY=verity,_TAG=1cc45ee04507' .
+Pop-Location
 ```
+
+After the authorized attempt is fully recorded, remove only that exact validated temporary
+worktree. Do not delete or rewrite the source release commit.
 
 Professional assessment: cloud state is consistent and recoverable, but Phase 4 is incomplete.
 Obtain explicit owner approval for exactly one corrected submission, then resume at Phase 4; do
