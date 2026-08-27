@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import base64
 import zlib
+from types import SimpleNamespace
 
 import pytest
 
 from verity.cloud_handoff import (
     MAX_RESULT_ENCODED_CHARS,
     RESULT_LOG_PREFIX,
+    CloudLoggingLineReader,
     _log_filter_literal,
     decode_request_args,
     decode_result_line,
@@ -121,3 +123,34 @@ def test_result_rejects_an_appended_compressed_stream() -> None:
 
 def test_log_filter_values_escape_quotes_and_backslashes() -> None:
     assert _log_filter_literal('job"\\name') == 'job\\"\\\\name'
+
+
+def test_cloud_logging_reader_uses_valid_timestamp_order_and_execution_label() -> None:
+    calls: list[dict[str, object]] = []
+
+    class FakeLoggingClient:
+        def list_entries(self, **kwargs: object) -> list[SimpleNamespace]:
+            calls.append(kwargs)
+            return [SimpleNamespace(payload="VERITY_TEST=result")]
+
+    reader = object.__new__(CloudLoggingLineReader)
+    reader._project = "verity-506800"
+    reader._location = "us-central1"
+    reader._job_name = "verity-sandbox"
+    reader._client = FakeLoggingClient()
+
+    assert (
+        reader.read_line(
+            execution_name=(
+                "projects/verity-506800/locations/us-central1/jobs/verity-sandbox/"
+                "executions/verity-sandbox-fmg7n"
+            ),
+            prefix="VERITY_TEST=",
+        )
+        == "VERITY_TEST=result"
+    )
+    assert calls[0]["order_by"] == "timestamp desc"
+    assert 'labels."run.googleapis.com/execution_name"="verity-sandbox-fmg7n"' in str(
+        calls[0]["filter_"]
+    )
+    assert "labels.execution_name" not in str(calls[0]["filter_"])

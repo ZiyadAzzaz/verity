@@ -202,7 +202,7 @@ class CloudLoggingLineReader:
             f'AND resource.labels.project_id="{project}" '
             f'AND resource.labels.location="{location}" '
             f'AND resource.labels.job_name="{job_name}" '
-            f'AND labels.execution_name="{execution_id}" '
+            f'AND labels."run.googleapis.com/execution_name"="{execution_id}" '
             f'AND logName="projects/{project}/logs/run.googleapis.com%2Fstdout"'
         )
 
@@ -212,7 +212,7 @@ class CloudLoggingLineReader:
             entries = self._client.list_entries(  # type: ignore[no-untyped-call]
                 resource_names=[f"projects/{self._project}"],
                 filter_=log_filter,
-                order_by="DESCENDING",
+                order_by="timestamp desc",
                 page_size=100,
             )
             for entry in entries:
