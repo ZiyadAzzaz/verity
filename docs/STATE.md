@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-28-CLOUD-RUN-SERVICE-ISOLATION.md](WORKLOG-2026-08-28-CLOUD-RUN-SERVICE-ISOLATION.md).
+[WORKLOG-2026-08-28-CLEAN-RECREATE-AND-FALLBACK.md](WORKLOG-2026-08-28-CLEAN-RECREATE-AND-FALLBACK.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Reset-to-current consolidated report:**
@@ -277,6 +277,14 @@ and both grants were then removed and verified absent/empty. The failure is scop
 Recreating `verity` from its pinned digest is the pragmatic next step but remains destructive and
 requires explicit owner approval.
 
+**Clean recreation and rename fallback both failed:** service `verity` was backed up, deleted, and
+recreated from the exact pinned digest/configuration under a new UID. Its authenticated health
+request still returned an unlogged front-end 404. Identical private fallback `verity-app` then
+failed the same way. Both temporary IAM cycles were removed; all three policies are empty and
+`verity-worker` remains absent. Stale service-object state and exact service name are ruled out.
+The common remaining discriminator is the Verity image/configuration path, although no specific
+root cause is yet proven.
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
@@ -286,9 +294,9 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Review the passing same-project sample-service isolation proof. Prepare and approve a bounded
-   delete-and-recreate of `verity` from its exact pinned digest, after capturing and comparing the
-   full service configuration. Do not delete, redeploy, or broaden IAM before that approval.
+4. Review the failed clean recreation and renamed fallback. Decide whether to delete unused private
+   `verity-app` and escalate to Google Cloud support, or authorize a new one-variable-at-a-time
+   image/configuration isolation plan. Do not continue Phase 7 or Phase 8.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm

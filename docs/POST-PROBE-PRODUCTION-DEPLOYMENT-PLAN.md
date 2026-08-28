@@ -17,6 +17,9 @@
 - **Service-isolation result:** a disposable private Google sample service in the same project and
   region returned authenticated HTTP 200 and logged the request. It was deleted and temporary IAM
   was removed. The failure is specific to service `verity`; recreation remains separately gated.
+- **Recreation/fallback result:** `verity` was recreated under a new UID from the exact pinned
+  digest/configuration and still returned unlogged 404. Renamed `verity-app` failed identically.
+  Temporary IAM was removed; Phase 7 remains stopped before subscription/OIDC delivery work.
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
 - **Execution status:** stopped during the Phase 7 private health gate after Phases 4–6 and the

@@ -80,6 +80,7 @@ anomaly remains, and Phase 8 stays closed.
 | 13 | Try direct `generateIdToken` with the narrow role after a 60-second propagation wait | Mint passed, claims matched, one health request returned unlogged Google-front-end 404, and both grants were removed |
 | 14 | Explicitly verify latest revision readiness and traffic before accepting a routing anomaly | `verity-00001-twb` and all container/service conditions are True; it is latest-ready and receives 100% traffic |
 | 15 | Isolate project/region behavior from the existing `verity` service with Google's disposable sample | Private sample returned and logged authenticated HTTP 200; temporary IAM was removed and the service was deleted |
+| 16 | Back up, delete, and recreate `verity`; test immediately; use renamed fallback if needed | Fresh `verity` and renamed `verity-app` both returned unlogged authenticated 404; all temporary IAM was removed and Phase 7 stayed closed |
 
 ### 2026-08-28 combined-attempt update
 
@@ -117,6 +118,15 @@ removed and the service was deleted immediately. The problem is therefore specif
 existing `verity` service path, not general project/region/private-auth routing. Recreating
 `verity` from its pinned image is the pragmatic next action but requires a new destructive-action
 approval.
+
+The owner then authorized clean recreation. The old YAML/IAM were backed up, `verity` was deleted,
+and an exact-digest/configuration replacement became Ready under a new UID. Its one direct-minted
+authenticated health request still returned unlogged front-end 404. The authorized renamed
+`verity-app` fallback used the same digest/configuration and also returned the same 404. Both IAM
+test cycles were removed; service policies and push-identity resource IAM are empty, and
+`verity-worker` remains absent. Service-object staleness and exact name are now ruled out. The
+remaining shared discriminator is the Verity image/configuration path, not yet a proven specific
+root cause.
 
 ## Starting state reconstructed after the reset
 
