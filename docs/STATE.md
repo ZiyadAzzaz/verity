@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-28-HTTP-CLIENT-ISOLATION.md](WORKLOG-2026-08-28-HTTP-CLIENT-ISOLATION.md).
+[WORKLOG-2026-08-29-SAME-TOKEN-CLIENT-COMPARISON.md](WORKLOG-2026-08-29-SAME-TOKEN-CLIENT-COMPARISON.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Reset-to-current consolidated report:**
@@ -301,6 +301,14 @@ HTTP 403 unexpectedly. No health request was sent. Both grants were removed and 
 read back as empty. The HTTP-client hypothesis therefore remains unresolved; do not treat this as
 another application 404 or as authorization for a new image build.
 
+**Same-token client comparison completed:** both narrow policies read back with exactly their one
+authorized binding. After a 60.007-second wait, mint attempt 1 returned a fully captured
+`getOpenIdToken` HTTP 403; attempt 2 succeeded after the authorized 15-second gap. The exact same
+validated token was then used by `Invoke-WebRequest` and curl's cleaned OS-temp configuration.
+Both returned identical Google-front-end HTTP 404 bodies and neither appeared in revision logs.
+The curl/request-construction hypothesis is conclusively closed. Both grants and the temp file
+were removed; `verity` remains private and unchanged.
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
@@ -310,9 +318,8 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Review the alternate-client precondition failure. Decide whether to authorize one rerun with
-   IAM-binding read-back and captured mint error details, abandon the client hypothesis, or move
-   to the separately gated minimal-ASGI image plan. Do not continue Phase 7 or Phase 8.
+4. Review the conclusive same-token client comparison and authorize or reject the separately
+   gated minimal-ASGI diagnostic image plan. Do not continue Phase 7 or Phase 8.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm
