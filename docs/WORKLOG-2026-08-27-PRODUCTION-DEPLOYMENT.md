@@ -637,3 +637,71 @@ Creator, service-account keys, making the service public, or another identical h
 Observed incremental cloud cost for the owner-run Cloud Shell check: `$0.00`. Professional
 assessment: the hard stop remains valid; the final diagnostic should be audience-bound and
 least-privilege, or the issue should be escalated to Google Cloud support without further retries.
+
+## Authorized service-account OIDC health proof
+
+The owner authorized one bounded proof using
+`verity-pubsub@verity-506800.iam.gserviceaccount.com`, with two temporary/conditional IAM changes,
+one token mint, at most one `/healthz` request, mandatory cleanup on failure, and no Phase 8 action.
+
+### Read-only preconditions
+
+- Local `main` and `origin/main` both resolved to
+  `42df3872400937442d9b9b24c5b30f3780f4a053`; the worktree was clean.
+- Cloud Run reported canonical URI `https://verity-7pauedpknq-uc.a.run.app` and ready revision
+  `verity-00001-twb` on immutable API digest
+  `sha256:6a708965b91b6eab0602d17aa7b11807675c6c22f15d47bcd7a08647077f6326`.
+- The service IAM policy was empty, the push identity's resource IAM policy was empty, and
+  subscription `verity-worker` was absent.
+
+### Bounded mutations and result
+
+1. Granted `roles/run.invoker` to the push identity only on Cloud Run service `verity`.
+2. Granted `roles/iam.serviceAccountOpenIdTokenCreator` to
+   `user:ziyadazzazdesigner@gmail.com` only on the push service account.
+3. Requested one Google-signed ID token from IAM Credentials `generateIdToken`, with the canonical
+   Cloud Run URI as audience and `includeEmail=true`.
+
+The token-mint request returned HTTP `403`. No ID token was obtained, so **no `/healthz` request
+was sent**. The authorized one-request allowance was therefore not consumed at the HTTP service,
+and no API-health or Cloud Run routing conclusion can be drawn from this attempt. The failure was
+unexpected and was not retried.
+
+The cleanup path then ran exactly as authorized:
+
+- removed the operator's temporary OpenID Connect Identity Token Creator binding;
+- removed the push identity's early Run Invoker binding because health had not passed; and
+- verified both resulting IAM policies were empty again.
+
+No `verity-worker` subscription, Pub/Sub service-agent grant, OIDC delivery probe, wrong-audience
+probe, pipeline execution, sandbox execution, GitHub Issue, public binding, deployment, or billing
+configuration change followed.
+
+### Read-only diagnosis after rollback
+
+- IAM Service Account Credentials API is enabled.
+- A post-cleanup `testIamPermissions` call reported
+  `iam.serviceAccounts.getOpenIdToken` as currently granted to the operator. This means the
+  temporary role may have been redundant under the operator's existing effective permissions; it
+  does **not** explain why `generateIdToken` returned 403.
+- Both raw and URL-encoded service-account resource forms resolved to the same push identity.
+- The available audit-log query returned no `GenerateIdToken` entry; this method is a Data Access
+  event, so absence from the current logs is not proof that the request did not occur.
+
+The exact 403 cause remains unresolved. Permission propagation is one possible explanation, but it
+was not proven and must not be reported as fact. A new token mint would be a retry after an
+unexpected security-gate failure and therefore requires fresh explicit authorization.
+
+### Cost, state, and professional assessment
+
+Observed incremental cost is `$0.00`: IAM policy changes, IAM policy reads, permission tests, and
+the rejected token-mint request have no observed billable workload; no request reached Cloud Run
+and no job/build was started. This stays well below both cost check-in thresholds.
+
+The system is restored to its exact pre-attempt exposure state: the API remains private, service
+Invoker IAM is empty, push-identity resource IAM is empty, `verity-worker` is absent, and Phase 8
+is unauthorized. Stopping is the correct result. The safest next step is a separately authorized,
+diagnostic token-mint attempt that captures the non-secret IAM Credentials error details and uses
+an explicit permission precheck; it must still stop without a health retry if minting fails. If
+that independently fails, escalate the evidence to Google Cloud support rather than adding broader
+IAM or making the service public.

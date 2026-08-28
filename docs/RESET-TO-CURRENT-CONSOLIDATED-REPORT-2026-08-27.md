@@ -73,6 +73,22 @@ health JSON is returned, the remaining Phase 7 gates and Phase 8 stay closed.
 | 8 | Authorize one secure direct `curl.exe` health request | Token stayed in a cleaned temp config; request again returned the same 404 |
 | 9 | Produce one consolidated Markdown report through the current state | This document |
 | 10 | Run the official proxy from Google Cloud Shell and return only safe HTTP evidence | Cloud Shell independently returned the same unlogged Google-front-end 404 |
+| 11 | Authorize the first bounded push-service-account proof | Direct token mint returned 403 before HTTP; both scoped IAM grants were removed |
+| 12 | Run Step A, then Step B only on real failure, with at least 60 seconds for propagation | Step A rejected human-account audiences; Step B waited 60.017 seconds but gcloud required unauthorized access-token permission; no HTTP request occurred and cleanup passed |
+
+### 2026-08-28 combined-attempt update
+
+The current Cloud Run `status.url` is `https://verity-7pauedpknq-uc.a.run.app`. It differs from the
+earlier deployment-returned regional URL and matches the canonical v2 Admin API URI. Step A failed
+with `Invalid account type for --audiences. Requires valid service account.` Step B then applied
+only the approved service Run Invoker and resource-level OpenID-token-creator bindings, waited
+60.017 seconds, and made one mint attempt. That gcloud impersonation path failed because
+`iam.serviceAccounts.getAccessToken` was not granted. No token and no HTTP request resulted.
+
+Both bindings were removed and read back as empty. `verity-worker` remains absent,
+`verity-pipeline` has no executions, observed incremental cost is `$0.00`, and Phase 8 remains
+closed. Full evidence and the professional recommendation are in
+[WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md](WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md).
 
 ## Starting state reconstructed after the reset
 
@@ -362,20 +378,10 @@ At the start of this report, the worktree was clean and local `HEAD` matched `or
 
 ## What remains before Phase 8
 
-1. Obtain explicit owner approval for one narrowly scoped service-account OIDC health proof:
-
-   - use existing `verity-pubsub@verity-506800.iam.gserviceaccount.com`;
-   - grant it `roles/run.invoker` only on service `verity`—the same binding already planned for
-     private Pub/Sub delivery;
-   - grant `ziyadazzazdesigner@gmail.com`
-     `roles/iam.serviceAccountOpenIdTokenCreator` only on that service account and only for this
-     probe;
-   - use IAM Credentials `generateIdToken` with audience equal to the canonical Cloud Run URI;
-   - keep the token in memory/a cleaned temp config and send exactly one `/healthz` request;
-   - remove the operator's temporary OIDC-token-creator binding in `finally` under every outcome;
-   - if health fails, also remove the push identity's early Run Invoker binding and stop; and
-   - if health passes, retain the push identity's planned Run Invoker binding and continue the
-     previously authorized private Phase 7 gates.
+1. Review the two failed and fully rolled-back service-account mint attempts. The latest gcloud
+   impersonation path required the broader `iam.serviceAccounts.getAccessToken` permission, which
+   was neither authorized nor granted. Do not repeat it or broaden IAM. A direct IAM Credentials
+   diagnostic retry requires fresh, exact owner authorization and safe error capture.
 
 2. If—and only if—the response is actual healthy Verity JSON, resume the previously authorized
    private Phase 7 sequence:
@@ -400,9 +406,9 @@ At the start of this report, the worktree was clean and local `HEAD` matched `or
 
 ## Owner input needed now
 
-First stop the still-running Cloud Shell proxy with `kill "$proxy_pid"` or exit Cloud Shell so its
-registered trap performs cleanup. Then explicitly authorize or reject the bounded service-account
-OIDC health proof above. No credential needs to be sent in chat.
+Review the fully rolled-back mint evidence. If continuing, explicitly authorize one diagnostic
+direct IAM Credentials `generateIdToken` call after a permission precheck, with complete non-secret
+error capture and no automatic retry or IAM broadening. No credential needs to be sent in chat.
 
 ## Professional assessment
 

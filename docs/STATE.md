@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-27-PRODUCTION-DEPLOYMENT.md](WORKLOG-2026-08-27-PRODUCTION-DEPLOYMENT.md).
+[WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md](WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Reset-to-current consolidated report:**
@@ -242,19 +242,25 @@ general provenance enforcement is still required.
 
 ## Next steps, in order
 
+**Latest Phase 7 checkpoint:** the 2026-08-28 combined attempt sent no HTTP request. Step A's
+human-account mint rejected audience selection. Step B applied both authorized scoped IAM grants,
+waited 60.017 seconds, then stopped because gcloud impersonation required the broader, unauthorized
+`iam.serviceAccounts.getAccessToken` permission. Both grants were removed and verified absent;
+`verity-worker` remains absent, pipeline executions remain zero, and Phase 8 is unauthorized. See
+[the latest work record](WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md).
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
-[WORKLOG-2026-08-27-PRODUCTION-DEPLOYMENT.md](WORKLOG-2026-08-27-PRODUCTION-DEPLOYMENT.md).
+[WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md](WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md).
 
 1. Local static, unit, Docker, image, and isolation gates are complete.
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Review and explicitly authorize—or reject—the narrow service-account OIDC health proof
-   described in the latest production work record. It would make the already-planned push identity
-   a service-level invoker, grant the operator OIDC-token creation only on that identity
-   temporarily, send one audience-bound request, and remove the temporary grant in all outcomes.
+4. Review the two failed, fully rolled-back service-account mint attempts. Do not repeat either
+   gcloud path or grant broader Token Creator. Any direct IAM Credentials diagnostic retry needs
+   fresh, exact authorization and must capture only non-secret error metadata.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm
