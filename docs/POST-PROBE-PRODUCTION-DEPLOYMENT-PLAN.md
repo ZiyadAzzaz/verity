@@ -7,6 +7,10 @@
   The human-account mint rejected `--audiences`; after a 60.017-second propagation wait, the
   service-account gcloud path required unauthorized `iam.serviceAccounts.getAccessToken` and was
   stopped. Both IAM grants were removed and verified absent; Phase 8 remains closed.
+- **Final diagnostic:** after a new authorization and 60.009-second wait, direct
+  `generateIdToken` succeeded and all expected claims matched. The one `/healthz` request returned
+  an unlogged Google-front-end 404; both IAM grants were removed. The Phase 7 health gate remains
+  failed and this diagnostic line is closed.
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
 - **Execution status:** stopped during the Phase 7 private health gate after Phases 4–6 and the

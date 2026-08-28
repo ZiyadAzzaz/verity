@@ -160,3 +160,98 @@ remain closed until private health and the remaining Phase 7 OIDC/rejection gate
 The final commit hash and `origin/main` push confirmation are filled by the Git history for this
 record's documentation commit. No code or cloud configuration remains uncommitted as mutable local
 state; the cloud IAM changes themselves were fully rolled back.
+
+## Final direct `generateIdToken` plus propagation diagnostic
+
+The owner subsequently authorized the one remaining combination in this diagnostic line: use the
+same narrow IAM grants, wait 60 seconds, call IAM Credentials `generateIdToken` directly with the
+operator's own access token, validate the returned claims, and send at most one health request.
+Both grants had to be removed afterward regardless of the result. No broader role, alternate
+method, retry, Phase 8 action, or billing change was authorized.
+
+### Reconstructed starting state
+
+- Local `HEAD` and `origin/main` matched
+  `4679679ea20268b42cca86c56732e206ba62ee7f`; the worktree was clean.
+- Active project/account were `verity-506800` and `ziyadazzazdesigner@gmail.com`.
+- Current Cloud Run `status.url` was still
+  `https://verity-7pauedpknq-uc.a.run.app`.
+- Service `verity` IAM and push-service-account resource IAM were both empty.
+
+### Authorized sequence and observed result
+
+1. Granted the push identity `roles/run.invoker` only on service `verity`.
+2. Granted the operator `roles/iam.serviceAccountOpenIdTokenCreator` only on the push service
+   account.
+3. Verified each returned policy contained exactly its one intended binding.
+4. Waited **60.009 seconds** after both updates.
+5. Called the exact direct endpoint once:
+
+   ```text
+   POST https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/verity-pubsub@verity-506800.iam.gserviceaccount.com:generateIdToken
+   ```
+
+   The request used the operator's access token, canonical Cloud Run audience, and
+   `includeEmail=true`. Secrets and tokens remained in memory or securely cleaned OS-temp files.
+
+The direct mint returned HTTP **200**. Local JWT payload validation, without printing the token,
+reported:
+
+```text
+audience match: true
+email match: true
+email_verified: true
+```
+
+Because every claim gate passed, exactly one `curl.exe` request was made to
+`https://verity-7pauedpknq-uc.a.run.app/healthz`. At `2026-08-28T02:20:33Z`, it returned:
+
+```text
+HTTP/1.1 404 Not Found
+Content-Type: text/html; charset=UTF-8
+Content-Length: 1568
+The requested URL /healthz was not found on this server.
+```
+
+The body was Google's front-end HTML, not Verity JSON. Curl completed normally with exit code 0;
+the application-health gate failed because the HTTP status/body were wrong.
+
+### Cleanup and independent verification
+
+Immediately after the response:
+
+- removed the operator's temporary OpenID Token Creator binding;
+- removed the push identity's temporary service-level Run Invoker binding; and
+- read both policies back as empty.
+
+Further read-only checks confirmed `verity-worker` is absent and `verity-pipeline` still has zero
+executions. A recent Cloud Run log read returned only earlier unauthenticated `favicon.ico` 403
+entries at 02:14 and 02:16Z. It contained no `/healthz` request at or after 02:20:33Z, so the one
+correctly signed service-account request did not reach the Cloud Run revision logging boundary.
+Two narrower timestamp/URL log-filter attempts were syntactically rejected by the local gcloud
+wrapper; the simplified one-hour service query succeeded and supplied the evidence above.
+
+### Final cost and security state
+
+Observed incremental cost remains `$0.00`: the IAM changes/reads and IAM Credentials call had no
+observed charge, the request did not reach a container, and no build, job, model call, database
+operation, subscription, or storage operation occurred. No cost threshold was approached, and no
+billing/payment/budget/quota/plan setting was touched.
+
+The final cloud exposure is identical to the starting state: private service, empty service
+Invoker policy, empty push-identity resource policy, no worker subscription, no pipeline
+execution, no public member, and no Phase 8 action.
+
+### Final professional assessment
+
+This result eliminates the remaining token-generation uncertainty. The narrow role propagated,
+the correct direct API minted a Google-signed token, and its `aud`, `email`, and verification claim
+matched exactly. Nevertheless, Cloud Run returned the same unlogged front-end 404 seen through all
+prior authenticated paths. This is not evidence of an application route failure because the
+request never appeared in revision logs; it is evidence of an unresolved Cloud Run front-end or
+service-routing/authentication anomaly for this deployment.
+
+This diagnostic line is exhausted. Do not retry, broaden IAM, redeploy, make the service public,
+or execute Phase 8 without a new owner decision. The next move belongs to the owner: perform the
+parallel browser/Console check or escalate the captured URI, timestamp, service, revision, request
+behavior, and IAM/token evidence to Google Cloud support.

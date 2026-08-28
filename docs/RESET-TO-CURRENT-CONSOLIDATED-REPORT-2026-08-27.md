@@ -24,17 +24,19 @@ zero-role sandbox identity. Least-privilege production identities, secret refere
 API, and the private pipeline were then created successfully.
 
 The deployment is currently stopped at the private `/healthz` gate. Five separately authorized
-client paths, including Google Cloud Shell, returned a Google-front-end 404 before reaching the container. The Cloud Run revision
+client paths, including Google Cloud Shell, returned a Google-front-end 404 before reaching the
+container. The Cloud Run revision
 itself is Ready, its startup probe passed, Uvicorn started, the route exists in the immutable image,
 and Cloud Run's Admin API confirms open ingress, an enabled default URI, normal invoker IAM
 enforcement, and effective `run.routes.invoke` permission for the operator. The exact authenticated
 front-end failure is therefore unresolved. No speculative IAM change, blind retry, push
 subscription, OIDC delivery, or public exposure followed.
 
-The next useful check must stop reusing human-account tokens. The recommended bounded proof is one
-Google-signed, audience-bound token for the existing push identity, with only service-level invoker
-access and a temporary resource-level OIDC-token-creator grant to the operator. Until actual Verity
-health JSON is returned, the remaining Phase 7 gates and Phase 8 stay closed.
+The final distinct token proof has now also run. Direct IAM Credentials minting succeeded after a
+60.009-second propagation wait, and the audience, push-identity email, and email-verification claim
+all matched. The one request nevertheless returned the same unlogged Google-front-end 404. Both
+scoped IAM bindings were removed. The token question is resolved; the Cloud Run front-end/routing
+anomaly remains, and Phase 8 stays closed.
 
 ## Standing instructions preserved throughout
 
@@ -75,6 +77,7 @@ health JSON is returned, the remaining Phase 7 gates and Phase 8 stay closed.
 | 10 | Run the official proxy from Google Cloud Shell and return only safe HTTP evidence | Cloud Shell independently returned the same unlogged Google-front-end 404 |
 | 11 | Authorize the first bounded push-service-account proof | Direct token mint returned 403 before HTTP; both scoped IAM grants were removed |
 | 12 | Run Step A, then Step B only on real failure, with at least 60 seconds for propagation | Step A rejected human-account audiences; Step B waited 60.017 seconds but gcloud required unauthorized access-token permission; no HTTP request occurred and cleanup passed |
+| 13 | Try direct `generateIdToken` with the narrow role after a 60-second propagation wait | Mint passed, claims matched, one health request returned unlogged Google-front-end 404, and both grants were removed |
 
 ### 2026-08-28 combined-attempt update
 
@@ -89,6 +92,13 @@ Both bindings were removed and read back as empty. `verity-worker` remains absen
 `verity-pipeline` has no executions, observed incremental cost is `$0.00`, and Phase 8 remains
 closed. Full evidence and the professional recommendation are in
 [WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md](WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md).
+
+The final direct-API combination was then authorized. After the same two narrow grants and a
+60.009-second wait, IAM Credentials returned HTTP 200. Local checks confirmed exact audience,
+service-account email, and `email_verified=true`. Exactly one canonical `/healthz` request returned
+Google-front-end 404 HTML at `2026-08-28T02:20:33Z` and did not appear in the revision's recent
+request logs. Both grants were removed and verified empty; observed cost remained `$0.00`. This
+diagnostic line is now exhausted.
 
 ## Starting state reconstructed after the reset
 
@@ -378,10 +388,10 @@ At the start of this report, the worktree was clean and local `HEAD` matched `or
 
 ## What remains before Phase 8
 
-1. Review the two failed and fully rolled-back service-account mint attempts. The latest gcloud
-   impersonation path required the broader `iam.serviceAccounts.getAccessToken` permission, which
-   was neither authorized nor granted. Do not repeat it or broaden IAM. A direct IAM Credentials
-   diagnostic retry requires fresh, exact owner authorization and safe error capture.
+1. Review the final successful direct mint plus unlogged 404. Token generation and claim accuracy
+   are now proven; the remaining blocker is at the Cloud Run front-end/service-routing boundary.
+   Decide whether to perform a browser/Console check or escalate to Google Cloud support. Do not
+   retry, broaden IAM, redeploy, or expose publicly without a new owner decision.
 
 2. If—and only if—the response is actual healthy Verity JSON, resume the previously authorized
    private Phase 7 sequence:
@@ -406,9 +416,9 @@ At the start of this report, the worktree was clean and local `HEAD` matched `or
 
 ## Owner input needed now
 
-Review the fully rolled-back mint evidence. If continuing, explicitly authorize one diagnostic
-direct IAM Credentials `generateIdToken` call after a permission precheck, with complete non-secret
-error capture and no automatic retry or IAM broadening. No credential needs to be sent in chat.
+Review the final successful-token/unlogged-404 evidence and choose the next direction. No
+credential needs to be sent in chat. No additional diagnostic or Phase 8 action is currently
+authorized.
 
 ## Professional assessment
 
@@ -419,11 +429,11 @@ privately with retries disabled. The team also caught and corrected serious work
 source-integrity, and CLI plaintext-secret risks before public exposure.
 
 The current blocker is narrow but real: private authenticated delivery has not produced application
-health evidence despite a healthy container and correct server-side configuration. Windows and
-Cloud Shell human-account paths now agree, so another human-token retry has no value. One
-least-privilege, audience-bound service-account request is the final technically distinct proof
-before escalating through Google Cloud service health/support. Its temporary credential-minting
-authority must be resource-scoped and removed under every outcome.
+health evidence despite a healthy container and correct server-side configuration. Windows, Cloud
+Shell, and a correctly minted audience-bound service-account token all produced unlogged front-end
+404 responses. The scoped grants were removed, and this diagnostic line is exhausted. The owner
+should now choose a parallel Console/browser inspection or Google Cloud support escalation rather
+than another retry, broader IAM, or premature public exposure.
 
 ## Related sources of truth
 

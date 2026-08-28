@@ -249,6 +249,13 @@ waited 60.017 seconds, then stopped because gcloud impersonation required the br
 `verity-worker` remains absent, pipeline executions remain zero, and Phase 8 is unauthorized. See
 [the latest work record](WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md).
 
+**Final diagnostic update:** the direct IAM Credentials call was then authorized with the same
+narrow grants and a 60.009-second wait. It minted successfully (HTTP 200); local validation proved
+the exact `aud`, push-service-account `email`, and `email_verified=true`. Exactly one `/healthz`
+request still returned unlogged Google-front-end 404 HTML at `2026-08-28T02:20:33Z`. Both grants
+were removed and verified absent. This diagnostic line is exhausted; no further retry, IAM
+broadening, deployment, or Phase 8 action is authorized.
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
@@ -258,9 +265,10 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Review the two failed, fully rolled-back service-account mint attempts. Do not repeat either
-   gcloud path or grant broader Token Creator. Any direct IAM Credentials diagnostic retry needs
-   fresh, exact authorization and must capture only non-secret error metadata.
+4. Review the final successful-token/unlogged-404 evidence. The private health blocker is now a
+   Cloud Run front-end/service-routing anomaly, not an unresolved token-mint question. Decide
+   whether to run a parallel Console/browser check or escalate the evidence to Google Cloud
+   support; do not retry or broaden IAM automatically.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm
