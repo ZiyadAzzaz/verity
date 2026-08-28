@@ -78,6 +78,7 @@ anomaly remains, and Phase 8 stays closed.
 | 11 | Authorize the first bounded push-service-account proof | Direct token mint returned 403 before HTTP; both scoped IAM grants were removed |
 | 12 | Run Step A, then Step B only on real failure, with at least 60 seconds for propagation | Step A rejected human-account audiences; Step B waited 60.017 seconds but gcloud required unauthorized access-token permission; no HTTP request occurred and cleanup passed |
 | 13 | Try direct `generateIdToken` with the narrow role after a 60-second propagation wait | Mint passed, claims matched, one health request returned unlogged Google-front-end 404, and both grants were removed |
+| 14 | Explicitly verify latest revision readiness and traffic before accepting a routing anomaly | `verity-00001-twb` and all container/service conditions are True; it is latest-ready and receives 100% traffic |
 
 ### 2026-08-28 combined-attempt update
 
@@ -99,6 +100,13 @@ service-account email, and `email_verified=true`. Exactly one canonical `/health
 Google-front-end 404 HTML at `2026-08-28T02:20:33Z` and did not appear in the revision's recent
 request logs. Both grants were removed and verified empty; observed cost remained `$0.00`. This
 diagnostic line is now exhausted.
+
+A final read-only readiness precondition check then confirmed `verity-00001-twb` is the only,
+latest-created, and latest-ready revision. Revision `Ready`, `Active`, `ContainerHealthy`,
+`ContainerReady`, and `ResourcesAvailable` are all `True`; service `Ready`,
+`ConfigurationsReady`, and `RoutesReady` are also `True`. Exactly 100% of traffic targets that
+revision. The startup probe passed on declared port 8080, so failed startup or traffic
+misallocation does not explain the unlogged 404. Incremental observed cost was `$0.00`.
 
 ## Starting state reconstructed after the reset
 

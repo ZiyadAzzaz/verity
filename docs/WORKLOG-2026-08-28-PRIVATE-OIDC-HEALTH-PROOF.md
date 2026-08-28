@@ -255,3 +255,77 @@ This diagnostic line is exhausted. Do not retry, broaden IAM, redeploy, make the
 or execute Phase 8 without a new owner decision. The next move belongs to the owner: perform the
 parallel browser/Console check or escalate the captured URI, timestamp, service, revision, request
 behavior, and IAM/token evidence to Google Cloud support.
+
+## Read-only revision readiness and traffic confirmation
+
+Before accepting the front-end/routing conclusion, the owner requested an explicit read-only check
+of revision readiness and service traffic. No IAM, deployment, request, billing, or Phase 8 action
+was authorized or performed.
+
+`gcloud run revisions list --service=verity --region=us-central1` returned exactly one revision:
+`verity-00001-twb`. A separate describe returned this exact conditions block:
+
+```yaml
+status:
+  conditions:
+  - lastTransitionTime: '2026-08-27T15:40:12.287356Z'
+    message: Deploying revision succeeded in 18.02s.
+    status: 'True'
+    type: Ready
+  - lastTransitionTime: '2026-08-27T15:40:12.396412Z'
+    severity: Info
+    status: 'True'
+    type: Active
+  - lastTransitionTime: '2026-08-27T15:40:12.225952Z'
+    message: Containers became healthy in 7.27s.
+    status: 'True'
+    type: ContainerHealthy
+  - lastTransitionTime: '2026-08-27T15:40:02.908242Z'
+    message: Container image import completed in 7.85s.
+    status: 'True'
+    type: ContainerReady
+  - lastTransitionTime: '2026-08-27T15:40:04.575212Z'
+    message: >-
+      Provisioning imported containers completed in 1.67s. Checking container health. This will
+      wait for up to 4m for the configured startup probe, including an initial delay of 0s.
+    status: 'True'
+    type: ResourcesAvailable
+```
+
+There is no `False` or `Unknown` condition and therefore no failure reason. The container declares
+port 8080, and its TCP startup probe on port 8080 passed.
+
+The service-level read returned:
+
+```yaml
+status:
+  conditions:
+  - status: 'True'
+    type: Ready
+  - status: 'True'
+    type: ConfigurationsReady
+  - status: 'True'
+    type: RoutesReady
+  latestCreatedRevisionName: verity-00001-twb
+  latestReadyRevisionName: verity-00001-twb
+  traffic:
+  - latestRevision: true
+    percent: 100
+    revisionName: verity-00001-twb
+  url: https://verity-7pauedpknq-uc.a.run.app
+```
+
+Observed conclusions:
+
+- latest revision `Ready=True` and `Active=True`;
+- container health and container readiness are both `True`;
+- service route readiness is `True`;
+- latest-created and latest-ready names are identical;
+- exactly 100% of traffic targets that revision; and
+- there is no split, zero allocation, or older-revision target.
+
+Observed incremental cost is `$0.00`; both operations were Cloud Run Admin API reads. This clears
+revision readiness, port listening, startup-probe success, route readiness, and traffic allocation
+as explanations for the unlogged 404. The prior front-end/service-routing anomaly assessment
+therefore stands. No remediation was attempted, and the owner still chooses between the separate
+browser/Console check and Google Cloud support escalation.

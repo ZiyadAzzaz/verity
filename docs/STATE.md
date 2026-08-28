@@ -256,6 +256,13 @@ request still returned unlogged Google-front-end 404 HTML at `2026-08-28T02:20:3
 were removed and verified absent. This diagnostic line is exhausted; no further retry, IAM
 broadening, deployment, or Phase 8 action is authorized.
 
+**Revision readiness precondition cleared:** read-only revision and service describes show
+`verity-00001-twb` has `Ready=True`, `Active=True`, `ContainerHealthy=True`, and
+`ContainerReady=True`; the service has `Ready=True`, `ConfigurationsReady=True`, and
+`RoutesReady=True`. It is both latest-created and latest-ready, and receives exactly 100% of
+traffic. There is no revision failure, port/startup-probe failure, split, zero allocation, or older
+traffic target to explain the unlogged 404.
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in

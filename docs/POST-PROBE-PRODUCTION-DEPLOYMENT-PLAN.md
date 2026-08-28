@@ -11,6 +11,9 @@
   `generateIdToken` succeeded and all expected claims matched. The one `/healthz` request returned
   an unlogged Google-front-end 404; both IAM grants were removed. The Phase 7 health gate remains
   failed and this diagnostic line is closed.
+- **Readiness precondition:** explicit read-only checks confirm revision `verity-00001-twb` is
+  `Ready=True`, all container conditions are true, service `RoutesReady=True`, and 100% of traffic
+  targets that same latest-ready revision. Revision startup/traffic is not the 404 cause.
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
 - **Execution status:** stopped during the Phase 7 private health gate after Phases 4–6 and the
