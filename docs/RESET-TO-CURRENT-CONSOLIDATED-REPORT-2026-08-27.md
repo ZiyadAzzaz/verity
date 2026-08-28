@@ -81,6 +81,7 @@ anomaly remains, and Phase 8 stays closed.
 | 14 | Explicitly verify latest revision readiness and traffic before accepting a routing anomaly | `verity-00001-twb` and all container/service conditions are True; it is latest-ready and receives 100% traffic |
 | 15 | Isolate project/region behavior from the existing `verity` service with Google's disposable sample | Private sample returned and logged authenticated HTTP 200; temporary IAM was removed and the service was deleted |
 | 16 | Back up, delete, and recreate `verity`; test immediately; use renamed fallback if needed | Fresh `verity` and renamed `verity-app` both returned unlogged authenticated 404; all temporary IAM was removed and Phase 7 stayed closed |
+| 17 | Delete unused fallback and run up to four one-variable image/config tests | Python HTTP server logged 200; three Uvicorn variants returned unlogged 404; all overrides/IAM reverted and fallback deleted |
 
 ### 2026-08-28 combined-attempt update
 
@@ -127,6 +128,14 @@ test cycles were removed; service policies and push-identity resource IAM are em
 `verity-worker` remains absent. Service-object staleness and exact name are now ruled out. The
 remaining shared discriminator is the Verity image/configuration path, not yet a proven specific
 root cause.
+
+The owner then authorized four sequential process/configuration tests. The same pinned image
+returned and logged authenticated HTTP 200 when its command was replaced with Python's built-in
+server. Direct Uvicorn, lifespan-disabled Uvicorn, and pure-Python asyncio+h11 Uvicorn each returned
+the same unlogged 404. Every failed command override was reset before the next test; final revision
+`verity-00009-ltc` uses the image defaults. Temporary IAM is empty, `verity-app` is deleted, and
+the worker subscription remains absent. The remaining boundary is now the ASGI/Uvicorn process in
+the pinned image, not port binding, middleware, lifespan, or optimized backend selection.
 
 ## Starting state reconstructed after the reset
 

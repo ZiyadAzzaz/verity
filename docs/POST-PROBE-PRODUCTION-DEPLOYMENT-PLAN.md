@@ -20,6 +20,9 @@
 - **Recreation/fallback result:** `verity` was recreated under a new UID from the exact pinned
   digest/configuration and still returned unlogged 404. Renamed `verity-app` failed identically.
   Temporary IAM was removed; Phase 7 remains stopped before subscription/OIDC delivery work.
+- **Process-isolation result:** the same pinned image served/logged HTTP 200 with Python's built-in
+  server, but three Uvicorn/Verity variants returned unlogged 404. All overrides and temporary IAM
+  were reverted; `verity-app` was deleted. A new image build is separately gated.
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
 - **Execution status:** stopped during the Phase 7 private health gate after Phases 4–6 and the

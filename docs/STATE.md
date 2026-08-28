@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-28-CLEAN-RECREATE-AND-FALLBACK.md](WORKLOG-2026-08-28-CLEAN-RECREATE-AND-FALLBACK.md).
+[WORKLOG-2026-08-28-UVICORN-ISOLATION.md](WORKLOG-2026-08-28-UVICORN-ISOLATION.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Reset-to-current consolidated report:**
@@ -285,6 +285,15 @@ failed the same way. Both temporary IAM cycles were removed; all three policies 
 The common remaining discriminator is the Verity image/configuration path, although no specific
 root cause is yet proven.
 
+**Four-test process isolation completed:** unused `verity-app` was deleted. Inside the same pinned
+Verity image/configuration, `python -m http.server 8080 --bind 0.0.0.0` returned and logged HTTP
+200. Direct Uvicorn, Uvicorn with lifespan off, and Uvicorn forced to asyncio+h11 each returned the
+same unlogged front-end 404. Every failed override was reverted; final `verity` revision
+`verity-00009-ltc` uses image defaults, is private/Ready, and both temporary IAM policies are
+empty. Binding, `$PORT`, Host/CORS middleware, wrapper/shell, lifespan, and optimized Uvicorn
+backends are ruled out as fixes. The remaining boundary is the ASGI/Uvicorn process in this pinned
+image.
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
@@ -294,9 +303,9 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Review the failed clean recreation and renamed fallback. Decide whether to delete unused private
-   `verity-app` and escalate to Google Cloud support, or authorize a new one-variable-at-a-time
-   image/configuration isolation plan. Do not continue Phase 7 or Phase 8.
+4. Review the bounded Uvicorn isolation proof. Decide whether to authorize one new immutable
+   minimal-ASGI image/build isolation plan or preserve the evidence for support. Do not continue
+   Phase 7 or Phase 8.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm
