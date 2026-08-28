@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-29-HTTP-STARTUP-PROBE-BLOCKED.md](WORKLOG-2026-08-29-HTTP-STARTUP-PROBE-BLOCKED.md).
+[WORKLOG-2026-08-29-HTTP-PROBE-AND-MINIMAL-ASGI.md](WORKLOG-2026-08-29-HTTP-PROBE-AND-MINIMAL-ASGI.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Reset-to-current consolidated report:**
@@ -316,6 +316,15 @@ change: `verity-00009-ltc` remains Ready at 100% with its TCP probe. Enabling th
 the current authorization, so Priority 1 is blocked rather than diagnostically failed; the
 minimal-image Priority 2 was not started.
 
+**Authorized continuation completed through the stop boundary:** Cloud Resource Manager was
+enabled. Verity revision `verity-00010-7ft` and minimal FastAPI/Uvicorn revision
+`verity-asgi-diagnostic-00001-88h` both failed HTTP `/healthz` startup probing with
+`ERROR_CONNECTION_FAILED`. Each first probe ran roughly 0.22 seconds after instance start because
+the owner-specified probe omitted an initial delay and allowed only one failure. Neither revision
+became Ready, so no authenticated health request or temporary IAM window occurred. This does not
+yet prove a platform ASGI defect; it proves the one-attempt probe was too early to distinguish
+normal startup from failure. Further mutation stopped and a support-case draft was prepared.
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
@@ -325,9 +334,10 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Authorize or perform enablement of `cloudresourcemanager.googleapis.com`, then retry the
-   prepared HTTP startup-probe replacement. Only if that real test fails should the already
-   planned minimal-ASGI diagnostic image run. Do not continue Phase 7 or Phase 8 yet.
+4. Review the HTTP-probe timing evidence and support-case draft. The cheapest valid next control
+   is a reasonable HTTP startup window on the already-built minimal image (for example, initial
+   delay 10 seconds and multiple failures). This requires new authorization. Do not continue
+   Phase 7 or Phase 8 yet.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm

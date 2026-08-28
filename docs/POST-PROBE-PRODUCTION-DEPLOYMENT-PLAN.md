@@ -30,6 +30,11 @@
 - **HTTP-probe attempt:** replacement manifest prepared, but the command was rejected before
   mutation because Cloud Resource Manager API is disabled. The service remains on its TCP probe;
   no health test or diagnostic image ran. API enablement requires owner authorization.
+- **HTTP-probe continuation:** Cloud Resource Manager was enabled. Both Verity and the one minimal
+  FastAPI/Uvicorn image failed `GET /healthz` startup probes with `ERROR_CONNECTION_FAILED` about
+  0.22 seconds after instance start. Both used zero initial delay and one permitted failure, so
+  this does not yet establish a platform ASGI defect. No auth request or Phase 7/8 action ran;
+  further mutation is stopped pending review of corrected probe timing.
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
 - **Execution status:** stopped during the Phase 7 private health gate after Phases 4–6 and the

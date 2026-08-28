@@ -1,0 +1,39 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/maxScale: '1'
+  labels:
+    cloud.googleapis.com/location: us-central1
+    purpose: verity-asgi-diagnostic
+  name: verity-asgi-diagnostic
+  namespace: '291098081728'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '1'
+    spec:
+      containerConcurrency: 4
+      containers:
+      - image: us-central1-docker.pkg.dev/verity-506800/verity/minimal-asgi@sha256:20c31500e1c946e4296b4463890438c72cd11b558e2d37178c07492f36dd398e
+        ports:
+        - containerPort: 8080
+          name: http1
+        resources:
+          limits:
+            cpu: '1'
+            memory: 512Mi
+        startupProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /healthz
+            port: 8080
+          periodSeconds: 30
+          timeoutSeconds: 10
+      serviceAccountName: verity-sandbox@verity-506800.iam.gserviceaccount.com
+      timeoutSeconds: 60
+  traffic:
+  - latestRevision: true
+    percent: 100
