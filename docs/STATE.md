@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-28-UVICORN-ISOLATION.md](WORKLOG-2026-08-28-UVICORN-ISOLATION.md).
+[WORKLOG-2026-08-28-HTTP-CLIENT-ISOLATION.md](WORKLOG-2026-08-28-HTTP-CLIENT-ISOLATION.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Reset-to-current consolidated report:**
@@ -294,6 +294,13 @@ empty. Binding, `$PORT`, Host/CORS middleware, wrapper/shell, lifespan, and opti
 backends are ruled out as fixes. The remaining boundary is the ASGI/Uvicorn process in this pinned
 image.
 
+**Alternate-client attempt stopped before the request:** the owner authorized one authenticated
+`Invoke-WebRequest` health test to isolate the prior curl/config construction. The narrow grants
+were applied and the required 60.010-second wait completed, but direct `generateIdToken` returned
+HTTP 403 unexpectedly. No health request was sent. Both grants were removed and independently
+read back as empty. The HTTP-client hypothesis therefore remains unresolved; do not treat this as
+another application 404 or as authorization for a new image build.
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
@@ -303,9 +310,9 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Review the bounded Uvicorn isolation proof. Decide whether to authorize one new immutable
-   minimal-ASGI image/build isolation plan or preserve the evidence for support. Do not continue
-   Phase 7 or Phase 8.
+4. Review the alternate-client precondition failure. Decide whether to authorize one rerun with
+   IAM-binding read-back and captured mint error details, abandon the client hypothesis, or move
+   to the separately gated minimal-ASGI image plan. Do not continue Phase 7 or Phase 8.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm
