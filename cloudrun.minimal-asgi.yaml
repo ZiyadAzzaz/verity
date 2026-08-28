@@ -26,12 +26,13 @@ spec:
             cpu: '1'
             memory: 512Mi
         startupProbe:
-          failureThreshold: 1
           httpGet:
             path: /healthz
             port: 8080
-          periodSeconds: 30
-          timeoutSeconds: 10
+          initialDelaySeconds: 10
+          failureThreshold: 5
+          periodSeconds: 3
+          timeoutSeconds: 3
       serviceAccountName: verity-sandbox@verity-506800.iam.gserviceaccount.com
       timeoutSeconds: 60
   traffic:

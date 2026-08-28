@@ -222,3 +222,95 @@ The cheapest technically valid next test would change the probe timing only—fo
 minimal image. That change was not authorized and was not made. If the minimal image still fails
 with a reasonable probe window, support escalation becomes substantially stronger. If it passes,
 apply the same corrected probe timing to Verity before returning to private Phase 7.
+
+## Authorized corrected-timing final control
+
+The owner subsequently authorized redeployment of the same immutable minimal image with Google's
+documented example timing:
+
+```yaml
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 10
+  failureThreshold: 5
+  periodSeconds: 3
+  timeoutSeconds: 3
+```
+
+No build occurred. [cloudrun.minimal-asgi.yaml](../cloudrun.minimal-asgi.yaml) changed only those
+probe-timing values and retained digest
+`sha256:20c31500e1c946e4296b4463890438c72cd11b558e2d37178c07492f36dd398e`.
+
+### Corrected minimal revision
+
+The redeployment created `verity-asgi-diagnostic-00002-xlm`. It became Ready and received 100%
+traffic. The container log establishes the internal application path independently:
+
+```text
+2026-08-28T23:54:54.771636Z  Application startup complete.
+2026-08-28T23:54:54.772526Z  Uvicorn running on http://0.0.0.0:8080
+2026-08-28T23:55:02.016751Z  GET /healthz HTTP/1.1 200 OK
+2026-08-28T23:55:02.017232Z  STARTUP HTTP probe succeeded after 1 attempt
+```
+
+This confirms the prior minimal revision failed only because its first probe was too early. It
+also proves the minimal FastAPI/Uvicorn image is healthy inside Cloud Run.
+
+### One authenticated external request
+
+The standard narrow private-health flow then ran once:
+
+1. granted `verity-pubsub` Run Invoker only on `verity-asgi-diagnostic`;
+2. granted the operator OpenID Token Creator only on `verity-pubsub`;
+3. read both policies back with exactly one binding/member and no condition;
+4. waited **60.015 seconds**;
+5. direct `generateIdToken` succeeded on attempt 1;
+6. local claims checks confirmed exact canonical audience and service-account email; and
+7. sent exactly one `Invoke-WebRequest GET /healthz`.
+
+Observed external result:
+
+```text
+HTTP 404
+Google generic Error 404 (Not Found) HTML
+The requested URL /healthz was not found on this server.
+```
+
+The response was not the static diagnostic JSON. The request did not appear in the revision's
+request log or Uvicorn access log; the only `/healthz` access entry is the successful internal
+startup probe above.
+
+Both temporary IAM grants were removed with exit 0 and independently read back as empty. No token
+or authorization header was written to disk or output.
+
+### Final branch decision
+
+The owner's condition for updating production required both Ready state **and** real authenticated
+diagnostic JSON. Ready passed, but the external request failed. Therefore:
+
+- corrected timing was **not** applied to production `verity`;
+- no production authentication window was opened;
+- Phase 7 subscription/OIDC gates were not run;
+- `verity-worker` remains absent; and
+- Phase 8 remains closed.
+
+This final control separates the two problems cleanly:
+
+1. the original one-attempt HTTP probe was too aggressive; and
+2. independently, a Ready minimal application that internally serves `/healthz` still receives an
+   unlogged Google-front-end 404 for a correctly authenticated external request.
+
+The second result contains no Verity imports, startup hooks, middleware, dependencies, secrets, or
+application logic. Together with the known-good Google sample service, it is now appropriate to
+escalate the private custom-container routing behavior to Google Cloud Support. The diagnostic
+service and failed/Ready revisions remain intact as requested.
+
+### Final incremental cost
+
+This continuation created one Ready revision, performed four temporary IAM policy mutations, one
+successful token mint, and one external request. It performed no build, image push, production
+revision, job, model, database, or Pub/Sub operation. No posted charge was available in real time;
+the closest observable incremental cost remains below `$0.01`. No billing resource was accessed
+or changed.

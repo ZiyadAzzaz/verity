@@ -1,6 +1,6 @@
 # Google Cloud Support Case Draft — Verity Cloud Run Routing and Startup Evidence
 
-**Status:** prepared, not submitted
+**Status:** finalized for owner submission, not submitted
 
 ## Case summary
 
@@ -73,15 +73,47 @@ official service sample uses an initial delay and multiple failures:
 Before asserting a platform defect, the recommended final control is to rerun the already-built
 minimal image with a reasonable initial delay and multiple permitted failures.
 
+## Final corrected-timing control
+
+That control is now complete. The same immutable minimal image was redeployed with:
+
+```text
+initialDelaySeconds: 10
+failureThreshold: 5
+periodSeconds: 3
+timeoutSeconds: 3
+```
+
+Revision `verity-asgi-diagnostic-00002-xlm` became Ready with 100% traffic. Its logs show:
+
+```text
+Application startup complete.
+Uvicorn running on http://0.0.0.0:8080
+GET /healthz HTTP/1.1 200 OK
+STARTUP HTTP probe succeeded after 1 attempt
+```
+
+The operator then applied exactly scoped temporary IAM, waited 60.015 seconds, directly minted a
+Google-signed ID token on the first attempt, and verified exact audience and service-account email
+claims. Exactly one external `GET /healthz` returned Google's generic HTTP 404 HTML instead of
+`{"status":"ok","diagnostic":"minimal-fastapi-uvicorn"}`. That request produced no Cloud Run
+revision request log and no Uvicorn access log. Both temporary IAM grants were removed and read
+back as empty.
+
+This corrected result supersedes the probe-timing caveat as the final control: the minimal
+application is internally healthy and serves the exact path, but the correctly authenticated
+external request does not reach it.
+
 ## Questions for Google Cloud Support
 
 1. Why do correctly authenticated, audience-matched requests sometimes receive an unlogged Google
    front-end 404 while unauthenticated requests to the same service are logged as 403?
-2. Is an immediate HTTP startup probe approximately 0.22 seconds after instance-start expected
-   when `initialDelaySeconds` is omitted?
-3. Does `failureThreshold: 1` intentionally terminate the instance on that first connection
-   refusal without waiting `periodSeconds`?
-4. Are there known interactions between private Cloud Run routing and Uvicorn/ASGI containers in
+2. Why does the Ready minimal service's internal HTTP probe receive 200 while an audience-matched
+   external request receives an unlogged Google-front-end 404?
+3. Is an immediate HTTP startup probe approximately 0.22 seconds after instance-start expected
+   when `initialDelaySeconds` is omitted, and does `failureThreshold: 1` intentionally terminate
+   on that first refusal?
+4. Are there known interactions between private Cloud Run routing and custom Uvicorn/ASGI images in
    `us-central1` that could explain the earlier authenticated unlogged 404s?
 
 ## Attachments and records

@@ -325,6 +325,14 @@ became Ready, so no authenticated health request or temporary IAM window occurre
 yet prove a platform ASGI defect; it proves the one-attempt probe was too early to distinguish
 normal startup from failure. Further mutation stopped and a support-case draft was prepared.
 
+**Corrected-timing final control completed:** minimal revision
+`verity-asgi-diagnostic-00002-xlm` became Ready with 100% traffic. Uvicorn logged internal
+`GET /healthz` HTTP 200 and Cloud Run logged startup-probe success. After exact temporary IAM,
+60.015 seconds, and a first-attempt direct token mint with matching claims, the single external
+request still returned an unlogged Google-front-end 404 instead of static diagnostic JSON. Both
+grants were removed and read back empty. Because the required JSON gate failed, production was
+not redeployed and Phase 7/8 did not run. The support case is now finalized for owner submission.
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
@@ -334,10 +342,9 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Review the HTTP-probe timing evidence and support-case draft. The cheapest valid next control
-   is a reasonable HTTP startup window on the already-built minimal image (for example, initial
-   delay 10 seconds and multiple failures). This requires new authorization. Do not continue
-   Phase 7 or Phase 8 yet.
+4. Submit the finalized Google Cloud Support case with the corrected-timing minimal-service
+   evidence. Preserve `verity-asgi-diagnostic` and its revisions until support has reviewed them.
+   Do not continue Phase 7 or Phase 8 yet.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm

@@ -35,6 +35,10 @@
   0.22 seconds after instance start. Both used zero initial delay and one permitted failure, so
   this does not yet establish a platform ASGI defect. No auth request or Phase 7/8 action ran;
   further mutation is stopped pending review of corrected probe timing.
+- **Corrected-timing result:** minimal revision `verity-asgi-diagnostic-00002-xlm` is Ready and its
+  internal `/healthz` probe logged HTTP 200, but one correctly signed/audience-matched external
+  request returned the same unlogged Google-front-end 404. Temporary IAM was removed. Production
+  was not redeployed; Phase 7/8 remain closed and the support case is finalized.
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
 - **Execution status:** stopped during the Phase 7 private health gate after Phases 4–6 and the
