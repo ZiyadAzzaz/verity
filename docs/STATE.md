@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md](WORKLOG-2026-08-28-PRIVATE-OIDC-HEALTH-PROOF.md).
+[WORKLOG-2026-08-28-CI-RECOVERY.md](WORKLOG-2026-08-28-CI-RECOVERY.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Reset-to-current consolidated report:**
@@ -29,6 +29,12 @@ read-only Console steps, expected values, prohibited controls, and a response te
 
 This is the current source of truth. Older status, review, handover, and completion documents
 are historical snapshots and retain their original evidence, dates, and test counts.
+
+**CI status:** the failed run on `6b8d337` was caused solely by a transient Docker Hub timeout
+resolving `python:3.11.15-slim`. Its failed job was rerun without changing or weakening the
+workflow; every lint, format, type, unit, Docker build, Docker test, and isolation gate passed in
+2m26s. Current main also has an independent successful CI run. See
+[WORKLOG-2026-08-28-CI-RECOVERY.md](WORKLOG-2026-08-28-CI-RECOVERY.md).
 
 ## Bottom line
 
