@@ -1,0 +1,86 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/maxScale: '20'
+    run.googleapis.com/urls: '["https://verity-291098081728.us-central1.run.app","https://verity-7pauedpknq-uc.a.run.app"]'
+  labels:
+    cloud.googleapis.com/location: us-central1
+    created-by: adk
+  name: verity
+  namespace: '291098081728'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '2'
+        run.googleapis.com/client-name: gcloud
+        run.googleapis.com/client-version: 582.0.0
+        run.googleapis.com/cpu-throttling: 'false'
+        run.googleapis.com/startup-cpu-boost: 'true'
+      labels:
+        client.knative.dev/nonce: uepwwxfhvn
+        created-by: adk
+        run.googleapis.com/startupProbeType: Default
+    spec:
+      containerConcurrency: 4
+      containers:
+      - env:
+        - name: VERITY_ENV
+          value: cloud
+        - name: VERITY_ENVIRONMENT
+          value: production
+        - name: VERITY_GEMINI_MODEL
+          value: gemini-3.5-flash
+        - name: VERITY_REPORT_REPO
+          value: ZiyadAzzaz/verity-reports
+        - name: GOOGLE_CLOUD_PROJECT
+          value: verity-506800
+        - name: GOOGLE_CLOUD_LOCATION
+          value: us-central1
+        - name: GOOGLE_CLOUD_VERTEX_LOCATION
+          value: global
+        - name: GOOGLE_GENAI_USE_VERTEXAI
+          value: 'true'
+        - name: VERITY_PUBSUB_OIDC_AUDIENCE
+          value: https://verity.internal/pubsub/verity-506800
+        - name: VERITY_PUBSUB_SERVICE_ACCOUNT
+          value: verity-pubsub@verity-506800.iam.gserviceaccount.com
+        - name: AGENT_VERSION
+          value: 1cc45ee04507
+        - name: ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS
+          value: 'false'
+        - name: APP_URL
+          value: https://verity-291098081728.us-central1.run.app
+        - name: VERITY_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: verity-api-key
+        - name: VERITY_GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: verity-github-token
+        image: us-central1-docker.pkg.dev/verity-506800/verity/verity-api@sha256:6a708965b91b6eab0602d17aa7b11807675c6c22f15d47bcd7a08647077f6326
+        ports:
+        - containerPort: 8080
+          name: http1
+        resources:
+          limits:
+            cpu: '1'
+            memory: 2Gi
+        startupProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /healthz
+            port: 8080
+          periodSeconds: 240
+          timeoutSeconds: 240
+      serviceAccountName: verity-app@verity-506800.iam.gserviceaccount.com
+      timeoutSeconds: 300
+  traffic:
+  - latestRevision: true
+    percent: 100

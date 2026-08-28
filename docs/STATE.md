@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-29-SAME-TOKEN-CLIENT-COMPARISON.md](WORKLOG-2026-08-29-SAME-TOKEN-CLIENT-COMPARISON.md).
+[WORKLOG-2026-08-29-HTTP-STARTUP-PROBE-BLOCKED.md](WORKLOG-2026-08-29-HTTP-STARTUP-PROBE-BLOCKED.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Reset-to-current consolidated report:**
@@ -309,6 +309,13 @@ Both returned identical Google-front-end HTTP 404 bodies and neither appeared in
 The curl/request-construction hypothesis is conclusively closed. Both grants and the temp file
 were removed; `verity` remains private and unchanged.
 
+**HTTP startup-probe replacement blocked before mutation:** the exact replacement manifest is
+prepared, but `gcloud run services replace` was rejected because
+`cloudresourcemanager.googleapis.com` is disabled. Read-back confirms no revision/config/IAM
+change: `verity-00009-ltc` remains Ready at 100% with its TCP probe. Enabling that API is outside
+the current authorization, so Priority 1 is blocked rather than diagnostically failed; the
+minimal-image Priority 2 was not started.
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
@@ -318,8 +325,9 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Review the conclusive same-token client comparison and authorize or reject the separately
-   gated minimal-ASGI diagnostic image plan. Do not continue Phase 7 or Phase 8.
+4. Authorize or perform enablement of `cloudresourcemanager.googleapis.com`, then retry the
+   prepared HTTP startup-probe replacement. Only if that real test fails should the already
+   planned minimal-ASGI diagnostic image run. Do not continue Phase 7 or Phase 8 yet.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm

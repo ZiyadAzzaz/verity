@@ -27,6 +27,9 @@
   back to back with `Invoke-WebRequest` and curl's secure temp-config method. Both returned the
   same unlogged Google-front-end 404. Client/request construction is ruled out; both grants and
   token material were removed. A minimal-ASGI diagnostic image is the next separately gated test.
+- **HTTP-probe attempt:** replacement manifest prepared, but the command was rejected before
+  mutation because Cloud Resource Manager API is disabled. The service remains on its TCP probe;
+  no health test or diagnostic image ran. API enablement requires owner authorization.
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
 - **Execution status:** stopped during the Phase 7 private health gate after Phases 4–6 and the
