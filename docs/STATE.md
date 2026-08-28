@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-28-CI-RECOVERY.md](WORKLOG-2026-08-28-CI-RECOVERY.md).
+[WORKLOG-2026-08-28-CLOUD-RUN-SERVICE-ISOLATION.md](WORKLOG-2026-08-28-CLOUD-RUN-SERVICE-ISOLATION.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Reset-to-current consolidated report:**
@@ -269,6 +269,14 @@ broadening, deployment, or Phase 8 action is authorized.
 traffic. There is no revision failure, port/startup-probe failure, split, zero allocation, or older
 traffic target to explain the unlogged 404.
 
+**Project-vs-service isolation is decisive:** a new private Google sample service in the same
+project/region accepted the same direct-minted, audience-matched `verity-pubsub` token and returned
+HTTP 200. Its revision log recorded the exact request with 5.16ms latency. The temporary service
+and both grants were then removed and verified absent/empty. The failure is scoped to service
+`verity`, not project, region, account, private Cloud Run, IAM Credentials, or local network.
+Recreating `verity` from its pinned digest is the pragmatic next step but remains destructive and
+requires explicit owner approval.
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
@@ -278,10 +286,9 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Review the final successful-token/unlogged-404 evidence. The private health blocker is now a
-   Cloud Run front-end/service-routing anomaly, not an unresolved token-mint question. Decide
-   whether to run a parallel Console/browser check or escalate the evidence to Google Cloud
-   support; do not retry or broaden IAM automatically.
+4. Review the passing same-project sample-service isolation proof. Prepare and approve a bounded
+   delete-and-recreate of `verity` from its exact pinned digest, after capturing and comparing the
+   full service configuration. Do not delete, redeploy, or broaden IAM before that approval.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm

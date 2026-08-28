@@ -79,6 +79,7 @@ anomaly remains, and Phase 8 stays closed.
 | 12 | Run Step A, then Step B only on real failure, with at least 60 seconds for propagation | Step A rejected human-account audiences; Step B waited 60.017 seconds but gcloud required unauthorized access-token permission; no HTTP request occurred and cleanup passed |
 | 13 | Try direct `generateIdToken` with the narrow role after a 60-second propagation wait | Mint passed, claims matched, one health request returned unlogged Google-front-end 404, and both grants were removed |
 | 14 | Explicitly verify latest revision readiness and traffic before accepting a routing anomaly | `verity-00001-twb` and all container/service conditions are True; it is latest-ready and receives 100% traffic |
+| 15 | Isolate project/region behavior from the existing `verity` service with Google's disposable sample | Private sample returned and logged authenticated HTTP 200; temporary IAM was removed and the service was deleted |
 
 ### 2026-08-28 combined-attempt update
 
@@ -107,6 +108,15 @@ latest-created, and latest-ready revision. Revision `Ready`, `Active`, `Containe
 `ConfigurationsReady`, and `RoutesReady` are also `True`. Exactly 100% of traffic targets that
 revision. The startup probe passed on declared port 8080, so failed startup or traffic
 misallocation does not explain the unlogged 404. Incremental observed cost was `$0.00`.
+
+The decisive project-vs-service test then deployed Google's known-good private sample as
+`verity-diagnostic-test` in the same project and region. Direct ID-token minting passed, its claims
+matched, and the one authenticated request returned HTTP 200. Cloud Run logged the request against
+revision `verity-diagnostic-test-00001-2br` with 5.156796ms latency. Both temporary grants were
+removed and the service was deleted immediately. The problem is therefore specific to the
+existing `verity` service path, not general project/region/private-auth routing. Recreating
+`verity` from its pinned image is the pragmatic next action but requires a new destructive-action
+approval.
 
 ## Starting state reconstructed after the reset
 

@@ -14,6 +14,9 @@
 - **Readiness precondition:** explicit read-only checks confirm revision `verity-00001-twb` is
   `Ready=True`, all container conditions are true, service `RoutesReady=True`, and 100% of traffic
   targets that same latest-ready revision. Revision startup/traffic is not the 404 cause.
+- **Service-isolation result:** a disposable private Google sample service in the same project and
+  region returned authenticated HTTP 200 and logged the request. It was deleted and temporary IAM
+  was removed. The failure is specific to service `verity`; recreation remains separately gated.
 - **Security gate:** live sandbox proof passed 6/6
 - **Owner authorization:** 2026-08-27, Phases 0–7 and private OIDC validation
 - **Execution status:** stopped during the Phase 7 private health gate after Phases 4–6 and the
