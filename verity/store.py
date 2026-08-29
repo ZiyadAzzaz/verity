@@ -178,7 +178,7 @@ class FirestoreJobStore(JobStore):
                     "updated_at": now,
                 },
             )
-            transaction.set(job_ref, job.model_dump(mode="json"))
+            transaction.set(job_ref, _firestore_encode(job))
             return job_id, True
 
         selected_id, created = await reserve(transaction)
@@ -193,7 +193,11 @@ class FirestoreJobStore(JobStore):
         if not job_id:
             return None
         snapshot = await self._db.collection("jobs").document(job_id).get()
-        return JobRecord.model_validate(snapshot.to_dict()) if snapshot.exists else None
+        return (
+            JobRecord.model_validate(_firestore_decode(snapshot.to_dict()))
+            if snapshot.exists
+            else None
+        )
 
     async def claim_job(self, job_id: str) -> bool:
         transaction = self._db.transaction()
@@ -214,7 +218,7 @@ class FirestoreJobStore(JobStore):
 
     async def update_job(self, job_id: str, **changes: Any) -> JobRecord:
         changes["updated_at"] = utc_now()
-        serialized = _jsonable(changes)
+        serialized = _firestore_encode(changes)
         ref = self._db.collection("jobs").document(job_id)
         await ref.update(serialized)
         job = await self.get_job(job_id)
@@ -234,7 +238,7 @@ class FirestoreJobStore(JobStore):
             detail=detail or {},
         )
         await trace_collection.document(f"{sequence:020d}-{uuid.uuid4().hex[:8]}").set(
-            event.model_dump(mode="json")
+            _firestore_encode(event)
         )
         return event
 
@@ -243,7 +247,8 @@ class FirestoreJobStore(JobStore):
             self._db.collection("jobs").document(job_id).collection("trace").order_by("sequence")
         )
         events = [
-            TraceEvent.model_validate(snapshot.to_dict()) async for snapshot in query.stream()
+            TraceEvent.model_validate(_firestore_decode(snapshot.to_dict()))
+            async for snapshot in query.stream()
         ]
         return [event.model_copy(update={"sequence": index}) for index, event in enumerate(events)]
 
@@ -256,7 +261,7 @@ class FirestoreJobStore(JobStore):
             snapshot = await job_ref.get(transaction=transaction)
             if not snapshot.exists:
                 raise KeyError(job_id)
-            job = JobRecord.model_validate(snapshot.to_dict())
+            job = JobRecord.model_validate(_firestore_decode(snapshot.to_dict()))
             now = utc_now()
             updated = job.model_copy(
                 update={
@@ -271,7 +276,7 @@ class FirestoreJobStore(JobStore):
             transaction.update(
                 job_ref,
                 {
-                    "verdict": verdict.model_dump(mode="json"),
+                    "verdict": _firestore_encode(verdict),
                     "status": JobStatus.COMPLETED.value,
                     "updated_at": now,
                 },
@@ -282,7 +287,7 @@ class FirestoreJobStore(JobStore):
                     "canonical_url": job.canonical_url,
                     "job_id": job_id,
                     "status": JobStatus.COMPLETED.value,
-                    "verdict": verdict.model_dump(mode="json"),
+                    "verdict": _firestore_encode(verdict),
                     "updated_at": now,
                 },
                 merge=True,
@@ -307,30 +312,65 @@ class FirestoreJobStore(JobStore):
         await (
             self._db.collection("sandbox_runs")
             .document(run.request.run_id)
-            .create(run.model_dump(mode="json"))
+            .create(_firestore_encode(run))
         )
 
     async def get_sandbox_run(self, run_id: str) -> SandboxRun | None:
         snapshot = await self._db.collection("sandbox_runs").document(run_id).get()
-        return SandboxRun.model_validate(snapshot.to_dict()) if snapshot.exists else None
+        return (
+            SandboxRun.model_validate(_firestore_decode(snapshot.to_dict()))
+            if snapshot.exists
+            else None
+        )
 
     async def complete_sandbox_run(self, run_id: str, result: EnvironmentResult) -> None:
         await (
             self._db.collection("sandbox_runs")
             .document(run_id)
-            .update({"result": result.model_dump(mode="json"), "completed_at": utc_now()})
+            .update(_firestore_encode({"result": result, "completed_at": utc_now()}))
         )
 
 
-def _jsonable(value: Any) -> Any:
+_NESTED_ARRAY_TYPE = "_verity_internal_type_v1"
+_NESTED_ARRAY_ITEMS = "_verity_internal_items_v1"
+
+
+def _firestore_encode(value: Any, *, inside_array: bool = False) -> Any:
+    """Make model data legal in Firestore Standard without changing its public schema.
+
+    Firestore Standard rejects an array whose direct element is another array. Verity's
+    ``install_commands`` is intentionally ``list[list[str]]``, so wrap only a nested array in a
+    small map. Firestore permits a map inside an array to contain an array, and the inverse
+    function removes the storage-only wrapper before Pydantic sees the document.
+    """
+
     from pydantic import BaseModel
 
     if isinstance(value, BaseModel):
-        return value.model_dump(mode="json")
+        return _firestore_encode(value.model_dump(mode="json"), inside_array=inside_array)
     if isinstance(value, dict):
-        return {key: _jsonable(item) for key, item in value.items()}
+        return {key: _firestore_encode(item) for key, item in value.items()}
     if isinstance(value, list | tuple):
-        return [_jsonable(item) for item in value]
+        items = [_firestore_encode(item, inside_array=True) for item in value]
+        if inside_array:
+            return {_NESTED_ARRAY_TYPE: "nested_array", _NESTED_ARRAY_ITEMS: items}
+        return items
     if hasattr(value, "value"):
         return value.value
+    return value
+
+
+def _firestore_decode(value: Any) -> Any:
+    """Restore nested arrays encoded by :func:`_firestore_encode`."""
+
+    if isinstance(value, dict):
+        if (
+            set(value) == {_NESTED_ARRAY_TYPE, _NESTED_ARRAY_ITEMS}
+            and value[_NESTED_ARRAY_TYPE] == "nested_array"
+            and isinstance(value[_NESTED_ARRAY_ITEMS], list)
+        ):
+            return [_firestore_decode(item) for item in value[_NESTED_ARRAY_ITEMS]]
+        return {key: _firestore_decode(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_firestore_decode(item) for item in value]
     return value

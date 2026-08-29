@@ -5,8 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from verity.models import Claim, Confidence, JobRecord, JobStatus, Verdict, VerdictStatus
-from verity.store import FirestoreJobStore, claim_key
+from verity.models import (
+    Claim,
+    Confidence,
+    ExecutionPlan,
+    JobRecord,
+    JobStatus,
+    ParsedClaim,
+    SourceType,
+    Verdict,
+    VerdictStatus,
+)
+from verity.store import FirestoreJobStore, _firestore_decode, _firestore_encode, claim_key
 
 
 @dataclass
@@ -75,6 +85,43 @@ class FakeFirestoreModule:
             return await function(transaction)
 
         return invoke
+
+
+def test_nested_command_arrays_round_trip_through_firestore_codec() -> None:
+    parsed = ParsedClaim(
+        claim=Claim(
+            metric="accuracy",
+            value=88.9,
+            unit="%",
+            dataset="deterministic fixture",
+            source_location="README benchmark table",
+        ),
+        source_url="https://github.com/example/benchmark",
+        source_type=SourceType.GITHUB,
+        evidence_excerpt="The benchmark reports 88.9% accuracy.",
+        execution=ExecutionPlan(
+            repository_url="https://github.com/example/benchmark",
+            install_commands=[
+                ["python", "-m", "pip", "install", "networkx"],
+                ["python", "-m", "pip", "install", "scikit-learn"],
+            ],
+            evaluation_command=["python", "src/benchmark.py"],
+        ),
+    )
+
+    encoded = _firestore_encode(parsed)
+
+    def assert_no_direct_nested_array(value: Any) -> None:
+        if isinstance(value, list):
+            assert not any(isinstance(item, list) for item in value)
+            for item in value:
+                assert_no_direct_nested_array(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                assert_no_direct_nested_array(item)
+
+    assert_no_direct_nested_array(encoded)
+    assert _firestore_decode(encoded) == parsed.model_dump(mode="json")
 
 
 async def test_verdict_and_claim_memory_complete_in_one_transaction() -> None:

@@ -129,10 +129,30 @@ async def test_firestore_failed_reservation_and_sandbox_models_round_trip(parsed
         assert replacement_created is True
         assert replacement.id != failed.id
 
+        # Standard-edition Firestore forbids an array directly containing another array.
+        # Real parser output can contain multiple argv arrays, so this must exercise the codec
+        # against Google's emulator rather than only a permissive fake document.
+        parsed_with_commands = parsed_claim.model_copy(
+            update={
+                "execution": parsed_claim.execution.model_copy(
+                    update={
+                        "install_commands": [
+                            ["python", "-m", "pip", "install", "networkx"],
+                            ["python", "-m", "pip", "install", "scikit-learn"],
+                        ]
+                    }
+                )
+            }
+        )
+        await store.update_job(replacement.id, parsed_claim=parsed_with_commands)
+        persisted = await store.get_job(replacement.id)
+        assert persisted is not None
+        assert persisted.parsed_claim == parsed_with_commands
+
         request = SandboxRequest(
             run_id=uuid.uuid4().hex,
             job_id=replacement.id,
-            parsed_claim=parsed_claim,
+            parsed_claim=parsed_with_commands,
             timeout_seconds=30,
         )
         run = SandboxRun(request=request)
