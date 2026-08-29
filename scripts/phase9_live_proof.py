@@ -208,9 +208,18 @@ def main() -> int:
     )
     print(f"\n  wrote {EVIDENCE / 'phase9-results.json'}")
 
-    outcomes = {r["verdict"] for r in results}
-    print(f"\n  outcomes seen: {sorted(outcomes)}")
-    ok = len(outcomes) >= 2 and dedup_ok and all(r["verdict"] for r in results)
+    #: A job that never reached a verdict is not an outcome type, it is a failure, and it must
+    #: not count toward the "at least two outcomes" bar. Sorting a set that contains None also
+    #: raises, so the missing verdicts are named separately rather than crashing the report on
+    #: the one run where something actually went wrong.
+    outcomes = sorted({r["verdict"] for r in results if r["verdict"]})
+    missing = [r["url"] for r in results if not r["verdict"]]
+    print(f"\n  outcomes seen : {outcomes}")
+    if missing:
+        print(f"  NO VERDICT    : {len(missing)} job(s) never reached one:")
+        for gap in missing:
+            print(f"    {gap}")
+    ok = len(outcomes) >= 2 and dedup_ok and not missing
     print(f"  RESULT: {'PASS' if ok else 'REVIEW NEEDED'}")
     return 0 if ok else 1
 
