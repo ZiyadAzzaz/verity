@@ -299,7 +299,7 @@ conda activate agent-dev
 | Lint + types + unit tests | `powershell -File scripts/test.ps1` |
 | The above plus containers | `powershell -File scripts/test.ps1 -Docker` |
 | Run the app | `uvicorn app.fast_api_app:app --reload --port 8080` |
-| Live profile + setup errors | `GET http://127.0.0.1:8080/healthz` |
+| Live profile + setup errors | `GET http://127.0.0.1:8080/health` |
 
 `check_setup.py` never prints your key — only whether one is present and its length. Safe to
 paste.

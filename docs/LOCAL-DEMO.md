@@ -247,7 +247,7 @@ python scripts/file_stored_verdict.py --database docs/assets/demo-cache/verity-d
 Or hit the API directly:
 
 ```bash
-curl -s http://127.0.0.1:8080/healthz
+curl -s http://127.0.0.1:8080/health
 ```
 
 ```bash

@@ -42,7 +42,7 @@ def create_app(
         )
         app.state.container = container
         # Surface a stopped Docker daemon or a missing API key at boot. It is not fatal —
-        # the status API and the UI stay useful — but the reason is reported on /healthz
+        # the status API and the UI stay useful — but the reason is reported on /health
         # instead of only appearing inside a failed job three minutes later.
         try:
             await container.preflight()
@@ -106,8 +106,8 @@ def create_app(
         candidate = Path.cwd() / "verity-architecture.html"
         return FileResponse(candidate if candidate.is_file() else STATIC_DIR / "index.html")
 
-    @api.get("/healthz")
-    async def healthz(request: Request) -> dict[str, str | None]:
+    @api.get("/health")
+    async def health(request: Request) -> dict[str, str | None]:
         setup_error = getattr(request.app.state, "setup_error", None)
         return {
             "status": "ok" if setup_error is None else "degraded",

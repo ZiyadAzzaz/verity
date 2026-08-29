@@ -1,5 +1,10 @@
 # Google Cloud Support Submission — Exact Owner Steps
 
+> **Superseded on 2026-08-29:** do not submit this case now. Google documents reserved URL paths,
+> including some paths ending in `z`. Renaming the minimal diagnostic route from `/healthz` to
+> `/health` produced authenticated HTTP 200 with exact application JSON. This file is retained only
+> as the previously prepared escalation procedure and investigation record.
+
 ## What you need to do
 
 Submit one technical Cloud Run case using the prepared evidence. Do not purchase or change a

@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-29-GEN2-AND-REGION-ISOLATION.md](WORKLOG-2026-08-29-GEN2-AND-REGION-ISOLATION.md).
+[WORKLOG-2026-08-29-RESERVED-HEALTH-PATH-FIX.md](WORKLOG-2026-08-29-RESERVED-HEALTH-PATH-FIX.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Reset-to-current consolidated report:**
@@ -75,7 +75,7 @@ See [EMULATOR-VALIDATION-2026-08-25.md](EMULATOR-VALIDATION-2026-08-25.md).
 | Total unique tests with emulators | **276 passed**: 273 standard/Docker tests plus 3 official-emulator tests |
 | Real isolation probe | 8/8 attacks blocked: host files, rootfs write, eval network, privilege, Docker socket, PID cap; install network and workspace write behave as designed |
 | Immutable revision smoke | a real public GitHub commit was fetched by full SHA, checked out detached in Docker, evaluated, and recorded without drift |
-| Local HTTP smoke | `/`, `/architecture`, `/healthz`, submission, cache lookup, verdict, and trace paths returned correctly against a writable copy of the demo DB |
+| Local HTTP smoke | `/`, `/architecture`, `/health`, submission, cache lookup, verdict, and trace paths returned correctly against a writable copy of the demo DB |
 | Demo cache | Five jobs, four historical outcomes, instant and zero model calls; read-only inspection creates no WAL/SHM sidecars |
 | GitHub artifacts | Issues #1–#5 exist; #1, #3, #4, and #5 are real verdict artifacts, while #2 is explicitly a synthetic wiring probe |
 | Runtime cleanup | no verification containers left running after the gates |
@@ -343,6 +343,17 @@ live engineering experiments and use the finalized support packet plus the separ
 fallback decision. Exact submission instructions are in
 [GOOGLE-CLOUD-SUPPORT-SUBMISSION-STEPS.md](GOOGLE-CLOUD-SUPPORT-SUBMISSION-STEPS.md).
 
+**Reserved-path root cause confirmed:** Google Cloud Run's official known-issues page says some
+paths ending in `z` are reserved and recommends avoiding every such path. Minimal revision
+`verity-asgi-diagnostic-00004-88p` changed only the application/probe route from `/healthz` to
+`/health` and used new pinned digest
+`sha256:a3866912b99eb854d4a23faaf4c1fb7dd82e7217673b623dbc489a3feb6e0b1c`. Its internal probe passed,
+and a correctly signed, audience/email-validated private external `GET /health` returned HTTP 200
+with exact diagnostic JSON on the first token mint. Both temporary grants were removed and read
+back absent. The prior routing anomaly is explained; support submission is no longer the active
+plan. Production rename/rebuild/private verification is the next authorized action, while Phase 8
+remains closed.
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
@@ -352,9 +363,8 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Submit the finalized Google Cloud Support case with the corrected-timing, explicit-gen2, and
-   two-region evidence. Preserve both diagnostic services and revisions until support has reviewed
-   them. Do not continue Phase 7 or Phase 8 yet.
+4. Complete the `/healthz` to `/health` production rename, build a commit-pinned API image, deploy
+   it privately with the corrected `/health` startup probe, and require real Verity health JSON.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm

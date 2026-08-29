@@ -14,10 +14,11 @@ spec:
     metadata:
       annotations:
         autoscaling.knative.dev/maxScale: '1'
+        run.googleapis.com/execution-environment: gen2
     spec:
       containerConcurrency: 4
       containers:
-      - image: us-central1-docker.pkg.dev/verity-506800/verity/minimal-asgi@sha256:20c31500e1c946e4296b4463890438c72cd11b558e2d37178c07492f36dd398e
+      - image: us-central1-docker.pkg.dev/verity-506800/verity/minimal-asgi@sha256:a3866912b99eb854d4a23faaf4c1fb7dd82e7217673b623dbc489a3feb6e0b1c
         ports:
         - containerPort: 8080
           name: http1
@@ -27,7 +28,7 @@ spec:
             memory: 512Mi
         startupProbe:
           httpGet:
-            path: /healthz
+            path: /health
             port: 8080
           initialDelaySeconds: 10
           failureThreshold: 5

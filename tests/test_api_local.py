@@ -32,8 +32,8 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         yield test_client
 
 
-def test_healthz_reports_the_active_profile(client) -> None:
-    body = client.get("/healthz").json()
+def test_health_reports_the_active_profile(client) -> None:
+    body = client.get("/health").json()
     assert body["profile"] == "local"
     assert body["store"] == "sqlite"
     assert body["queue"] == "asyncio"
@@ -42,7 +42,7 @@ def test_healthz_reports_the_active_profile(client) -> None:
 
 def test_a_stopped_docker_daemon_is_reported_as_a_setup_problem(client) -> None:
     """Degraded, not silently healthy — and never a fallback to running code on the host."""
-    body = client.get("/healthz").json()
+    body = client.get("/health").json()
     assert body["status"] == "degraded"
     assert "Docker daemon is not reachable" in body["setup_error"]
 

@@ -1,5 +1,11 @@
 # Post-Probe Production Deployment Plan — Authorized Through Private Checkpoint
 
+> **2026-08-29 reserved-path correction:** Google Cloud Run documents some paths ending in `z` as
+> reserved. The minimal diagnostic proved that replacing `/healthz` with `/health`, with every
+> other tested variable held constant, changes the private authenticated result from an unlogged
+> Google-front-end 404 to HTTP 200 with exact application JSON. All executable instructions below
+> now use `/health`; earlier `/healthz` entries in the evidence chronology remain historical.
+
 - **Prepared:** 2026-08-27
 - **Project:** `verity-506800`
 - **Region:** `us-central1`
@@ -158,7 +164,7 @@ docker run --rm --entrypoint python verity-api:predeploy -c `
 docker run --rm --entrypoint verity-worker verity-api:predeploy --help
 ```
 
-Run the API container locally with non-production test settings and verify `/healthz`. Do not pass
+Run the API container locally with non-production test settings and verify `/health`. Do not pass
 the real GitHub token into a local container smoke test.
 
 Additional mandatory checks:
@@ -265,7 +271,7 @@ arguments, logs, Markdown, Git, or build context.
 4. Grant the app identity executor-with-overrides only on the pipeline job.
 5. Verify the deployed job override contract changes only args to
    `-m verity.worker <job_id>` and keeps command `python`.
-6. Invoke authenticated `/healthz` as the operator and require healthy Firestore, Pub/Sub, Vertex,
+6. Invoke authenticated `/health` as the operator and require healthy Firestore, Pub/Sub, Vertex,
    and configuration startup. Do not accept a Google-front-end response as application evidence.
    `Invoke-WebRequest`, local proxy, direct curl, and Google Cloud Shell proxy all returned unlogged
    front-end 404 responses despite effective invoke permission and open ingress. Do not repeat a
@@ -296,7 +302,7 @@ secret wiring is wrong.
 Only after the owner reviews the private checkpoint, run `scripts/publish_production.ps1` with its
 mandatory `-OwnerApprovedPhase8` switch to grant `allUsers` Run Invoker. The main private deploy
 script contains no `allUsers` mutation. Then confirm protected endpoints still require the
-separate `VERITY_API_KEY`; `/healthz` and static demo pages may remain intentionally public.
+separate `VERITY_API_KEY`; `/health` and static demo pages may remain intentionally public.
 
 Public access is last so a broken or weakly authenticated deployment is never exposed during
 assembly.

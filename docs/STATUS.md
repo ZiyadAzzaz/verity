@@ -381,7 +381,7 @@ conda activate agent-dev
 uvicorn app.fast_api_app:app --reload --port 8080
 ```
 
-`http://127.0.0.1:8080`. `GET /healthz` reports the live profile and any setup error:
+`http://127.0.0.1:8080`. `GET /health` reports the live profile and any setup error:
 
 ```json
 {

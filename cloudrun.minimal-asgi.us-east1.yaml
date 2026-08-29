@@ -28,7 +28,7 @@ spec:
             memory: 512Mi
         startupProbe:
           httpGet:
-            path: /healthz
+            path: /health
             port: 8080
           initialDelaySeconds: 10
           failureThreshold: 5

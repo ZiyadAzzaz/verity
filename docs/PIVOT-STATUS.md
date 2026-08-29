@@ -189,7 +189,7 @@ production now additionally requires `VERITY_ENV=cloud`.
 | `verity/store.py` | `JobStore` ABC moved to `interfaces.py`; `find_cached_result` added to both stores; `complete_sandbox_run` properly typed. |
 | `verity/agents/environment.py` | `DockerSandboxBackend` added. `LocalSandboxBackend` demoted and documented as not-a-boundary. Container tracebacks now map back to host files. |
 | `verity/orchestrator.py` | Takes a `JobQueue`; checks `find_cached_result` **before** anything expensive. |
-| `verity/api.py` | Lifespan runs preflight + starts/stops the consumer. `/healthz` reports the active profile and any setup error. |
+| `verity/api.py` | Lifespan runs preflight + starts/stops the consumer. `/health` reports the active profile and any setup error. |
 | `verity/agents/parser.py`, `debug.py` | Depend on `ModelClient`, call `generate_structured`. |
 | `verity/pipeline.py`, `sandbox_runner.py`, `prompts.py`, `app/agent.py` | Import from `interfaces`; storage-neutral wording. |
 | `.env.example` | Rewritten around `VERITY_ENV`, with the local block first. |
@@ -477,7 +477,7 @@ schema retry, a metric regex that misses. I fix those, re-run, and report.
 uvicorn app.fast_api_app:app --reload --port 8080
 ```
 
-Then open `http://127.0.0.1:8080`. `GET /healthz` reports the active profile and any setup
+Then open `http://127.0.0.1:8080`. `GET /health` reports the active profile and any setup
 problem found at boot:
 
 ```json

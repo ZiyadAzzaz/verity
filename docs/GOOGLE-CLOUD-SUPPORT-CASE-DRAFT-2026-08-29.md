@@ -1,7 +1,29 @@
 # Google Cloud Support Case Draft — Verity Cloud Run Routing and Startup Evidence
 
-**Status:** finalized for owner submission, not submitted because no authenticated in-app
-browser tab was attached to the agent session
+**Status:** superseded; do not submit. The reserved-path root cause was confirmed on 2026-08-29.
+
+## Resolution
+
+Google Cloud Run's official known-issues page documents reserved URL paths, including some paths
+ending in `z`, and recommends avoiding all paths ending in `z`:
+
+- https://docs.cloud.google.com/run/docs/known-issues#ah
+
+The minimal diagnostic was rebuilt with its route and startup probe changed from `/healthz` to
+`/health`, while preserving its framework, image base, dependencies, command, runtime identity,
+resources, gen2 execution environment, region, private IAM, and token flow. Ready revision
+`verity-asgi-diagnostic-00004-88p` passed its internal `/health` probe. After the standard narrow
+IAM window and 60.004-second wait, direct token minting succeeded on attempt 1, all audience/email
+claims matched, and the only external `GET /health` returned:
+
+```text
+HTTP 200
+{"status":"ok","diagnostic":"minimal-fastapi-uvicorn"}
+```
+
+Both temporary IAM grants were removed and read back absent. This single-variable control proves
+that Cloud Run's reserved `/healthz` path caused the prior unlogged Google-front-end 404. The case
+below is retained as investigation history but no longer requires submission.
 
 ## Case summary
 

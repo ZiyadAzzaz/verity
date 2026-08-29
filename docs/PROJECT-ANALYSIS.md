@@ -160,7 +160,7 @@ The agent reasoned its way to refusing. That is the pitch, demonstrated rather t
 
 Cloned the pushed repo into a scratch directory and followed `README.md` literally. It works:
 `.env.example` copies, `check_setup.py` reports precisely what is missing and where, and the
-app serves `/healthz` as `degraded` with an actionable `setup_error` rather than failing
+app serves `/health` as `degraded` with an actionable `setup_error` rather than failing
 obscurely.
 
 It also caught a real drift bug: `check_setup.py` was sending newcomers to

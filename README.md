@@ -143,7 +143,7 @@ conda activate agent-dev
 uvicorn app.fast_api_app:app --reload --port 8080
 ```
 
-Open `http://127.0.0.1:8080`. `GET /healthz` reports the active profile and any setup
+Open `http://127.0.0.1:8080`. `GET /health` reports the active profile and any setup
 problem it found at boot.
 
 ### Docker is required, not optional
@@ -261,7 +261,7 @@ remain until that evidence is produced in the owner's project. See the
 POST /api/jobs                 {"url":"https://..."} -> 202 + job_id
 GET  /api/jobs/{job_id}        -> current job, verdict, full trace
 POST /internal/pubsub          Pub/Sub push consumer (verified Google OIDC)
-GET  /healthz                  liveness
+GET  /health                   liveness
 ```
 
-Except for `/healthz` and the static page, supply `X-Verity-Key` in production.
+Except for `/health` and the static page, supply `X-Verity-Key` in production.
