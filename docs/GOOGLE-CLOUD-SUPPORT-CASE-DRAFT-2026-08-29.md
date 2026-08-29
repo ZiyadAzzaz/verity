@@ -1,6 +1,7 @@
 # Google Cloud Support Case Draft — Verity Cloud Run Routing and Startup Evidence
 
-**Status:** finalized for owner submission, not submitted
+**Status:** finalized for owner submission, not submitted because no authenticated in-app
+browser tab was attached to the agent session
 
 ## Case summary
 
@@ -104,6 +105,45 @@ This corrected result supersedes the probe-timing caveat as the final control: t
 application is internally healthy and serves the exact path, but the correctly authenticated
 external request does not reach it.
 
+## Final execution-environment and region controls
+
+Two additional low-cost controls used the same immutable image, gen2 execution environment,
+no-role runtime identity, corrected startup probe, resources, scaling, and private IAM boundary.
+
+### Explicit gen2 in `us-central1`
+
+Before the update, the service had no explicit
+`run.googleapis.com/execution-environment` annotation. Updating only
+`--execution-environment=gen2` created Ready revision
+`verity-asgi-diagnostic-00003-k6r`, with 100% traffic and the annotation read back as `gen2`.
+Internal logs showed application startup, Uvicorn on `0.0.0.0:8080`, and startup-probe
+`GET /healthz` HTTP 200.
+
+The first narrow authentication window stopped before a request when the single token mint
+returned HTTP 403; both grants were removed. In a second narrow window, the previously approved
+bounded 403-only mint rule succeeded on attempt 3 after a 60.003-second propagation wait. Token
+claims matched the canonical audience and push-service-account email. The only external
+`GET /healthz` still returned generic Google HTTP 404 HTML and did not appear in the revision's
+request or Uvicorn logs. Both temporary grants were removed and read back absent.
+
+### Same gen2 service in `us-east1`
+
+A fresh private service, `verity-asgi-diagnostic-east1`, was deployed in `us-east1` with the exact
+same image digest and configuration. Revision
+`verity-asgi-diagnostic-east1-00001-pf5` became Ready with 100% traffic. Internal logs again showed
+Uvicorn listening and startup-probe `GET /healthz` HTTP 200.
+
+One local PowerShell launch typo stopped the first authentication window before token minting or
+HTTP; cleanup removed both grants. The corrected run waited 60.007 seconds, received HTTP 403 on
+mint attempt 1, succeeded on attempt 2, and verified matching audience, email, and
+`email_verified=true`. Its only external `GET /healthz` returned the same generic Google HTTP 404
+HTML and was absent from revision and Uvicorn logs. Cleanup read-back showed both exact bindings
+absent.
+
+These controls rule out an explicit gen2 switch and a move from `us-central1` to `us-east1` as
+fixes. They also show the symptom is not confined to one of those regions. The `us-east1` service
+is retained privately, at scale to zero and with empty IAM, as support evidence.
+
 ## Questions for Google Cloud Support
 
 1. Why do correctly authenticated, audience-matched requests sometimes receive an unlogged Google
@@ -113,12 +153,14 @@ external request does not reach it.
 3. Is an immediate HTTP startup probe approximately 0.22 seconds after instance-start expected
    when `initialDelaySeconds` is omitted, and does `failureThreshold: 1` intentionally terminate
    on that first refusal?
-4. Are there known interactions between private Cloud Run routing and custom Uvicorn/ASGI images in
-   `us-central1` that could explain the earlier authenticated unlogged 404s?
+4. Are there known interactions between private Cloud Run routing and custom Uvicorn/ASGI images
+   that could explain the same authenticated unlogged 404 in both `us-central1` and `us-east1`,
+   including with explicit gen2?
 
 ## Attachments and records
 
 - [Primary work record](WORKLOG-2026-08-29-HTTP-PROBE-AND-MINIMAL-ASGI.md)
+- [Gen2 and region isolation](WORKLOG-2026-08-29-GEN2-AND-REGION-ISOLATION.md)
 - [Same-token client comparison](WORKLOG-2026-08-29-SAME-TOKEN-CLIENT-COMPARISON.md)
 - [Uvicorn isolation record](WORKLOG-2026-08-28-UVICORN-ISOLATION.md)
 - [Cloud Run sample isolation](WORKLOG-2026-08-28-CLOUD-RUN-SERVICE-ISOLATION.md)

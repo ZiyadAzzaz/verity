@@ -15,7 +15,7 @@ approximately $25; hard review gates are documented in
 [CLOUD-LIVE-SAFETY.md](CLOUD-LIVE-SAFETY.md).
 
 **Latest work record:**
-[WORKLOG-2026-08-29-HTTP-PROBE-AND-MINIMAL-ASGI.md](WORKLOG-2026-08-29-HTTP-PROBE-AND-MINIMAL-ASGI.md).
+[WORKLOG-2026-08-29-GEN2-AND-REGION-ISOLATION.md](WORKLOG-2026-08-29-GEN2-AND-REGION-ISOLATION.md).
 Every future material session follows [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md).
 
 **Reset-to-current consolidated report:**
@@ -333,6 +333,16 @@ request still returned an unlogged Google-front-end 404 instead of static diagno
 grants were removed and read back empty. Because the required JSON gate failed, production was
 not redeployed and Phase 7/8 did not run. The support case is now finalized for owner submission.
 
+**Gen2 and region controls also failed:** explicit gen2 created Ready `us-central1` revision
+`verity-asgi-diagnostic-00003-k6r`; the identical pinned image and gen2 configuration created
+Ready `us-east1` revision `verity-asgi-diagnostic-east1-00001-pf5`. In each region the internal
+startup probe reached `/healthz` with HTTP 200, while one audience/email-validated authenticated
+external request returned the same unlogged Google-front-end 404. All temporary IAM is absent,
+production remains unchanged, `verity-worker` is absent, and Phase 8 remains closed. Stop further
+live engineering experiments and use the finalized support packet plus the separately reviewed
+fallback decision. Exact submission instructions are in
+[GOOGLE-CLOUD-SUPPORT-SUBMISSION-STEPS.md](GOOGLE-CLOUD-SUPPORT-SUBMISSION-STEPS.md).
+
 The implementation-ready schemas, trust boundaries, crash windows, and acceptance tests for these
 steps are in [NEXT-IMPLEMENTATION.md](NEXT-IMPLEMENTATION.md).
 The current execution evidence is in
@@ -342,9 +352,9 @@ The current execution evidence is in
 2. The live no-role sandbox proof is complete: six sensitive APIs returned explicit 403 denials.
 3. `VERITY_API_KEY` is present locally; Agents CLI 1.4.0, package installation, the module worker,
    and the local/Docker gates are resolved and validated.
-4. Submit the finalized Google Cloud Support case with the corrected-timing minimal-service
-   evidence. Preserve `verity-asgi-diagnostic` and its revisions until support has reviewed them.
-   Do not continue Phase 7 or Phase 8 yet.
+4. Submit the finalized Google Cloud Support case with the corrected-timing, explicit-gen2, and
+   two-region evidence. Preserve both diagnostic services and revisions until support has reviewed
+   them. Do not continue Phase 7 or Phase 8 yet.
 5. If health passes, continue the still-private Phase 7 unauthenticated rejection and OIDC push
    gates, then stop with full IAM/digest/cost evidence before Phase 8.
 6. After that approval, run one unseen source through the real deployed path, confirm
