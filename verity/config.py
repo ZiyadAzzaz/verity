@@ -17,6 +17,7 @@ friends); an unset override means "whatever ``VERITY_ENV`` implies".
 
 from __future__ import annotations
 
+import hmac
 from functools import lru_cache
 from typing import Literal
 
@@ -88,6 +89,11 @@ class Settings(BaseSettings):
     )
 
     api_key: SecretStr | None = None
+    #: A second, independently revocable credential. Judges and demo reviewers get this one,
+    #: so withdrawing their access never means rotating the owner's key and redeploying.
+    #: env_prefix already yields VERITY_JUDGE_TEST_KEY. An explicit validation_alias would
+    #: block population by field name and break every direct Settings(...) construction.
+    judge_test_key: SecretStr | None = None
     pubsub_oidc_audience: str | None = Field(default=None, pattern=r"^https://[^\s]+$")
     pubsub_service_account: str | None = Field(
         default=None,
@@ -121,6 +127,29 @@ class Settings(BaseSettings):
     def llm(self) -> LLMBackend:
         return self.llm_backend or PROFILES[self.env][3]
 
+    def accepts_api_key(self, supplied: str | None) -> bool:
+        """Is this the owner key or the judge key?
+
+        Every candidate is compared with :func:`hmac.compare_digest`, and *all* candidates are
+        compared even after a match, so acceptance takes the same work regardless of which key
+        was presented or whether one is configured at all.
+
+        An unset or empty configured key is never a candidate. Skipping that check is how a
+        "second key" feature turns into an authentication bypass for the empty string.
+        """
+        if not supplied:
+            return False
+        accepted = False
+        for candidate in (self.api_key, self.judge_test_key):
+            if candidate is None:
+                continue
+            value = candidate.get_secret_value()
+            if not value:
+                continue
+            if hmac.compare_digest(value, supplied):
+                accepted = True
+        return accepted
+
     @model_validator(mode="after")
     def validate_production(self) -> Settings:
         if self.environment != "production":
@@ -138,6 +167,8 @@ class Settings(BaseSettings):
             errors.append("GOOGLE_CLOUD_PROJECT is required")
         if not self.api_key or len(self.api_key.get_secret_value()) < 24:
             errors.append("VERITY_API_KEY must contain at least 24 characters")
+        if self.judge_test_key is not None and len(self.judge_test_key.get_secret_value()) < 24:
+            errors.append("VERITY_JUDGE_TEST_KEY must contain at least 24 characters when set")
         if not self.pubsub_oidc_audience:
             errors.append("VERITY_PUBSUB_OIDC_AUDIENCE is required")
         if not self.pubsub_service_account:

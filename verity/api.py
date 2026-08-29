@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hmac
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -81,14 +80,10 @@ def create_app(
     async def require_api_key(
         x_verity_key: Annotated[str | None, Header()] = None,
     ) -> None:
-        expected = settings.api_key.get_secret_value() if settings.api_key else None
-        if expected is None and settings.environment != "production":
+        configured = settings.api_key or settings.judge_test_key
+        if configured is None and settings.environment != "production":
             return
-        if (
-            expected is None
-            or x_verity_key is None
-            or not hmac.compare_digest(expected, x_verity_key)
-        ):
+        if not settings.accepts_api_key(x_verity_key):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid API key")
 
     protected = [Depends(require_api_key)]
