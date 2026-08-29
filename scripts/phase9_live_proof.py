@@ -61,7 +61,13 @@ PRIOR_RUN_URL = "https://github.com/python-attrs/attrs"
 
 
 def gcloud(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run([GCLOUD, *args], capture_output=True, text=True)
+    #: text=True decodes with the locale encoding, which is cp1252 on this Windows host. A claim
+    #: parsed out of an arXiv PDF carries typographic quotes, so the job JSON is not cp1252 and
+    #: decoding it raised UnicodeDecodeError mid-poll - losing the run's own result while the
+    #: pipeline went on working perfectly. UTF-8 is what these tools actually emit.
+    return subprocess.run(
+        [GCLOUD, *args], capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
 
 
 def service_url() -> str:
@@ -104,6 +110,8 @@ def post(url: str, key: str, claim: str) -> dict[str, Any]:
         ],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     ).stdout
     parsed: dict[str, Any] = json.loads(out or "{}")
     return parsed
@@ -114,6 +122,8 @@ def fetch(url: str, key: str, job_id: str) -> dict[str, Any]:
         ["curl", "-s", f"{url}/api/jobs/{job_id}", "-H", f"X-Verity-Key: {key}"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     ).stdout
     parsed: dict[str, Any] = json.loads(out or "{}")
     return parsed
