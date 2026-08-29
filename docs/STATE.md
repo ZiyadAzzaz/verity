@@ -1,5 +1,16 @@
 # Verity — Current State and Next Steps
 
+> **Superseded for current status.** Read
+> [PROJECT-STATUS-2026-08-29.md](PROJECT-STATUS-2026-08-29.md) instead. Verity is now deployed
+> publicly, the Phase 7 health gate and Phase 8 public exposure both passed, and the Phase 9 live
+> multi-claim proof passed with three distinct verdicts. The release blockers below that describe a
+> private deployment stopped at a health gate are **resolved and kept only as the historical record
+> of how that failure was diagnosed**, which remains the most detailed account of it.
+>
+> Two corrections to what follows: the credit figure below says "$450 promotional credit"; the
+> operative constraint is a **$150** grant with no payment method beyond it. And the closing
+> instruction not to describe Verity as public no longer applies — it is public.
+
 **Audited:** 2026-08-24; scoped cloud-security and emulator validation updated 2026-08-25
 
 **Audit implementation:** `696cdfd3989633e80e7fd0b98c6e21794cabcd1d`

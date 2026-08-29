@@ -1,0 +1,65 @@
+  service     : https://verity-7pauedpknq-uc.a.run.app
+  claims      : 3
+    - https://github.com/psf/requests
+      GitHub README with an asserted number, small and quick to execute - expected to reach the sandbox and reproduce
+    - https://arxiv.org/abs/1512.03385
+      arXiv PDF, ResNet ImageNet error rate - reaches the sandbox and fails for want of weights and data, which is a verdict rather than an infrastructure failure
+    - https://github.com/ijl/orjson
+      GitHub README for a compiled extension - expected to be declined as environment incompatible rather than executed
+  judge key   : loaded (43 chars, not printed)
+
+  === https://github.com/psf/requests
+      job 0eb05cd78ee84c688dc930a2dc70c134  cached=True
+      status: completed
+      verdict   : no_verifiable_claim_found  reproduced=None
+      attempts  : 0   trace: 5
+      issue     : https://github.com/ZiyadAzzaz/verity-reports/issues/8
+
+  === https://arxiv.org/abs/1512.03385
+      job ab222756fc9d441f890b23f5f8f65dc1  cached=False
+      status: queued
+      status: parsing
+      status: running
+      status: debugging
+      status: running
+      status: debugging
+      status: running
+      status: completed
+      verdict   : could_not_verify  reproduced=None
+      attempts  : 3   trace: 13
+      issue     : https://github.com/ZiyadAzzaz/verity-reports/issues/9
+
+  === https://github.com/ijl/orjson
+      job 3ce00f3f35454d5685ee99cec754d68e  cached=False
+      status: queued
+      status: parsing
+      status: running
+      status: debugging
+      status: running
+      status: debugging
+      status: running
+      status: completed
+      verdict   : inconclusive  reproduced=None
+      attempts  : 3   trace: 14
+      issue     : https://github.com/ZiyadAzzaz/verity-reports/issues/10
+
+  === dedup re-submission (same run) of https://github.com/psf/requests
+      cached=True  status=completed  in 389 ms
+  === dedup re-submission (earlier revision) of https://github.com/python-attrs/attrs
+      cached=True  status=completed  in 1303 ms
+
+  === Cloud Run Job executions ===
+    verity-pipeline: 5 recent execution(s)
+      verity-pipeline-hgxcn	2026-08-29T20:44:51.744881Z
+      verity-pipeline-zgxxc	2026-08-29T20:29:41.117319Z
+      verity-pipeline-nd6fx	2026-08-29T20:16:33.973387Z
+    verity-sandbox: 5 recent execution(s)
+      verity-sandbox-mdmm4	2026-08-29T20:44:29.388218Z
+      verity-sandbox-wbh8c	2026-08-29T20:40:30.810162Z
+      verity-sandbox-ztdpj	2026-08-29T20:36:54.355878Z
+
+  wrote E:\Azzaz CAI\Researches\verity-hackathon\docs\assets\cloud-evidence\phase9-results.json
+
+  outcomes seen : ['could_not_verify', 'inconclusive', 'no_verifiable_claim_found']
+  RESULT: PASS
+exit=0

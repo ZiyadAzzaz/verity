@@ -17,7 +17,7 @@ Verity runs on either of two infrastructures, chosen by a single setting:
 | State, trace, claim memory | SQLite (`verity.db`) | Firestore |
 | Intake to processing | `asyncio.Queue` | Pub/Sub |
 | Model calls | Gemini via AI Studio API key | Gemini via Vertex AI |
-| Untrusted execution | Docker (`docker run --rm`) | Cloud Run Jobs (experimental, blocked in production) |
+| Untrusted execution | Docker (`docker run --rm`) | Cloud Run Jobs, no-role service account |
 
 **The local profile needs no Google Cloud project, no billing account, and no card.** The
 agents depend only on the interfaces in `verity/interfaces.py`; `verity/container.py` is
@@ -222,25 +222,55 @@ python scripts/validate_deployed.py 'https://YOUR-SERVICE.run.app' --timeout 360
 
 ## Google Cloud status
 
-**Cloud deployment remains paused for a live security gate, not for missing implementation.**
-The sandbox no longer reads or writes Firestore. A bounded public request is passed through Cloud
+**Verity is deployed and public:** <https://verity-7pauedpknq-uc.a.run.app>
+
+Reading is open to anyone; submitting a claim requires `X-Verity-Key`, so an unauthenticated
+`GET /health` returns 200 and an unauthenticated `POST /api/jobs` returns 401. Judges and
+reviewers get a second, independently revocable key, so withdrawing their access never means
+rotating the owner's.
+
+A live multi-claim proof ran three genuinely different sources through the public endpoint and
+produced three different verdicts, none of them served from cache:
+
+| Source | Verdict | What it shows |
+|---|---|---|
+| [psf/requests](https://github.com/ZiyadAzzaz/verity-reports/issues/8) | `no_verifiable_claim_found` | "300M downloads / week" is a popularity statistic, not a reproducible benchmark |
+| [arXiv 1512.03385](https://github.com/ZiyadAzzaz/verity-reports/issues/9) | `could_not_verify` | ResNet's 5.71% top-5 error read out of Table 3 with its conditions, three bounded debug attempts, no reproduced value asserted |
+| [ijl/orjson](https://github.com/ZiyadAzzaz/verity-reports/issues/10) | `inconclusive` | executed, retried three times, and declined to claim a result |
+
+Each ran as a `verity-pipeline` Cloud Run Job that started a **nested** `verity-sandbox`
+execution, persisted its trace to Firestore, and filed the Issue itself. Re-submitting a URL
+returns the stored verdict in about a second, including across a redeployment, because claim
+memory is Firestore state rather than a container-local cache.
+
+The sandbox never reads or writes Firestore. A bounded public request is passed through Cloud
 Run execution arguments, Cloud Run collects one bounded stdout result, and only the trusted
 pipeline reads that execution's logs and persists the result. The sandbox image has no Google
 Cloud client; its job definition clears environment, secret, volume, and VPC attachments; and its
-dedicated service account must have no project or discovered resource-level IAM binding.
+dedicated service account has no project or resource-level IAM binding.
 
-Before the privileged app is deployed, the blueprint deliberately steals the sandbox metadata
-token and requires explicit denial of a Firestore write, Secret Manager read, Pub/Sub publish,
-Cloud Run execution, Vertex AI listing, and Cloud Storage listing. The sandbox-only proof can be
-run without opening the production guards:
+The pipeline that *starts* sandbox jobs holds `roles/run.jobsExecutorWithOverrides` — `run.jobs.run`
+and nothing that reads the Cloud Run API back. It takes the execution name from the operation's
+metadata and recovers the result from the sandbox's own log line, so it can launch an execution
+and still not query one.
+
+**Known limit:** claims whose evaluation cannot finish inside the 900-second sandbox budget end as
+an infrastructure timeout rather than a verdict. `arXiv 1810.04805` (BERT/GLUE) is one: it reaches
+the debug loop and then runs out of budget cloning TensorFlow-era dependencies. A larger budget
+would not rescue a CPU BERT evaluation, so this is recorded as a limit rather than tuned away.
+
+Before the privileged app was deployed, the blueprint deliberately stole the sandbox metadata
+token and required explicit denial of a Firestore write, Secret Manager read, Pub/Sub publish,
+Cloud Run execution, Vertex AI listing, and Cloud Storage listing — six recorded 403s. That
+sandbox-only proof can be re-run on its own:
 
 ```powershell
 powershell -File scripts/deploy_sandbox_probe.ps1 -ProjectId YOUR_PROJECT_ID -Region us-central1
 ```
 
-Pub/Sub now uses verified Google OIDC rather than a query-string secret. The two fail-closed guards
-remain until that evidence is produced in the owner's project. See the
-[scoped security fix](docs/SCOPED-CLOUD-SECURITY-FIX.md) and
+Pub/Sub delivery is authenticated with verified Google OIDC against a custom audience, not a
+query-string secret. See [current status](docs/PROJECT-STATUS-2026-08-29.md), the
+[scoped security fix](docs/SCOPED-CLOUD-SECURITY-FIX.md), and the
 [full audit](docs/AUDIT-2026-08-24.md).
 
 ## Reproducibility
