@@ -1051,6 +1051,33 @@ class LocalSandboxBackend(SandboxBackend):
 # ---------------------------------------------------------------------------
 
 
+def _execution_name_of(operation: object, timeout_seconds: float) -> str:
+    """Name the execution a ``run_job`` call just started, without reading it back.
+
+    Cloud Run returns the ``Execution`` as the operation's metadata in the *initial* response,
+    so the name is already in hand and needs no second call.  Waiting on the operation instead
+    would invoke ``run.operations.get``, and the pipeline's service account is deliberately
+    allowed only to *start* sandbox jobs — ``roles/run.jobsExecutorWithOverrides`` grants
+    ``run.jobs.run`` and nothing that reads the Cloud Run API back.  Awaiting the operation is
+    also redundant: the result is read from the sandbox's own log line, and that reader already
+    polls until the line appears.
+
+    The name only narrows a log filter.  Correctness rests on the ``run_id`` check inside
+    :func:`decode_result_line`, so a wrong name yields no result rather than the wrong one.
+    """
+    metadata = getattr(operation, "metadata", None)
+    name = getattr(metadata, "name", None)
+    if isinstance(name, str) and name:
+        return name
+    # A response without metadata is the only case that still needs the read-back, and it
+    # fails cleanly where the permission is absent rather than silently reading nothing.
+    execution = operation.result(timeout=timeout_seconds + 120)  # type: ignore[attr-defined]
+    fallback = getattr(execution, "name", None)
+    if not isinstance(fallback, str) or not fallback:
+        raise RuntimeError("Cloud Run returned no execution name")
+    return fallback
+
+
 class CloudRunJobBackend(SandboxBackend):
     """Launch a no-role Cloud Run Job and recover its platform-collected result log.
 
@@ -1120,10 +1147,7 @@ class CloudRunJobBackend(SandboxBackend):
                 client.run_job,
                 request=run_v2.RunJobRequest(name=name, overrides=override),
             )
-            execution = await asyncio.to_thread(operation.result, timeout=self._timeout + 120)
-            execution_name = getattr(execution, "name", None)
-            if not isinstance(execution_name, str) or not execution_name:
-                raise RuntimeError("Cloud Run returned no execution name")
+            execution_name = await asyncio.to_thread(_execution_name_of, operation, self._timeout)
             reader = self._result_reader or CloudLoggingResultReader(
                 project=self._project,
                 location=self._location,

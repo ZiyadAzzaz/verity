@@ -130,3 +130,62 @@ def test_minimal_sandbox_entrypoint_has_no_cloud_data_client() -> None:
     assert "google.cloud" not in source
     assert "decode_request_args" in source
     assert "encode_result_line" in source
+
+
+async def test_execution_name_comes_from_metadata_without_reading_the_operation_back(
+    monkeypatch, parsed_claim
+) -> None:
+    """The pipeline may start a sandbox job but not read the Cloud Run API back.
+
+    ``roles/run.jobsExecutorWithOverrides`` grants ``run.jobs.run`` and no read permission, so
+    awaiting the operation raises ``PermissionDenied`` in production.  Cloud Run already returns
+    the execution as the operation's metadata, so the name is taken from there and the read-back
+    never happens.  This test fails loudly if that regresses, because the failure it guards
+    against only appears once a claim actually reaches execution.
+    """
+    execution_name = (
+        "projects/test-project/locations/us-central1/jobs/verity-sandbox/"
+        "executions/verity-sandbox-frommeta"
+    )
+
+    class ForbiddenReadBackOperation:
+        def __init__(self) -> None:
+            self.metadata = SimpleNamespace(name=execution_name)
+
+        def result(self, *, timeout: int):
+            raise AssertionError(
+                "operation.result() calls run.operations.get, which the pipeline service "
+                "account is deliberately not granted"
+            )
+
+    class RecordingJobsClient:
+        def job_path(self, project: str, location: str, job_name: str) -> str:
+            return f"projects/{project}/locations/{location}/jobs/{job_name}"
+
+        def run_job(self, *, request):
+            return ForbiddenReadBackOperation()
+
+    expected = EnvironmentResult(
+        succeeded=True, exit_code=0, phase="metric", actual_value=1.0, duration_seconds=2
+    )
+
+    class RecordingResultReader:
+        def read(self, *, execution_name: str, run_id: str, timeout_seconds: float):
+            assert execution_name.endswith("verity-sandbox-frommeta")
+            return expected
+
+    monkeypatch.setattr(run_v2, "JobsClient", RecordingJobsClient)
+    store = RecordingMemoryStore()
+    backend = CloudRunJobBackend(
+        project="test-project",
+        location="us-central1",
+        job_name="verity-sandbox",
+        store=store,
+        timeout_seconds=30,
+        result_reader=RecordingResultReader(),
+    )
+
+    result = await backend.run("job-1", parsed_claim, [], None)
+
+    assert result.succeeded is True
+    assert result.sandbox_execution == execution_name
