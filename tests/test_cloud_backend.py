@@ -90,7 +90,10 @@ async def test_cloud_handoff_uses_only_bounded_args_and_platform_logs(
         def read(self, *, execution_name: str, run_id: str, timeout_seconds: float):
             assert execution_name.endswith("verity-sandbox-abc")
             assert len(run_id) == 32
-            assert timeout_seconds == 7
+            # The execution timeout plus the log-propagation margin. Nothing waits for the
+            # execution to finish before this read starts, so a budget of the margin alone
+            # would expire while the sandbox was still running.
+            assert timeout_seconds == 30 + 7
             return expected
 
     monkeypatch.setattr(run_v2, "JobsClient", RecordingJobsClient)
@@ -172,6 +175,11 @@ async def test_execution_name_comes_from_metadata_without_reading_the_operation_
     class RecordingResultReader:
         def read(self, *, execution_name: str, run_id: str, timeout_seconds: float):
             assert execution_name.endswith("verity-sandbox-frommeta")
+            # Taking the name from metadata means nothing waits for the execution to finish, so
+            # this reader is now the only thing bounding the wait. A budget that does not
+            # outlast the execution itself fails every claim that takes longer than the log
+            # margin - which live BERT verification did, twice, before this was asserted.
+            assert timeout_seconds > 30
             return expected
 
     monkeypatch.setattr(run_v2, "JobsClient", RecordingJobsClient)

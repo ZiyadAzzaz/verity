@@ -1058,9 +1058,12 @@ def _execution_name_of(operation: object, timeout_seconds: float) -> str:
     so the name is already in hand and needs no second call.  Waiting on the operation instead
     would invoke ``run.operations.get``, and the pipeline's service account is deliberately
     allowed only to *start* sandbox jobs — ``roles/run.jobsExecutorWithOverrides`` grants
-    ``run.jobs.run`` and nothing that reads the Cloud Run API back.  Awaiting the operation is
-    also redundant: the result is read from the sandbox's own log line, and that reader already
-    polls until the line appears.
+    ``run.jobs.run`` and nothing that reads the Cloud Run API back.
+
+    Awaiting the operation did do one real thing: it guaranteed the execution had finished
+    before the log reader started, so that reader's budget only ever had to cover log
+    propagation.  Dropping the wait moves that responsibility onto the reader, whose deadline
+    must therefore cover the execution itself — see the call site.
 
     The name only narrows a log filter.  Correctness rests on the ``run_id`` check inside
     :func:`decode_result_line`, so a wrong name yields no result rather than the wrong one.
@@ -1157,7 +1160,11 @@ class CloudRunJobBackend(SandboxBackend):
                 reader.read,
                 execution_name=execution_name,
                 run_id=run_id,
-                timeout_seconds=self._result_log_timeout,
+                # Nothing blocks until the execution finishes any more, so this deadline has to
+                # cover the run itself, not just the seconds a finished line takes to reach
+                # Cloud Logging. Budgeting only the propagation margin here times out on every
+                # claim whose evaluation outlives it, which is every claim worth executing.
+                timeout_seconds=self._timeout + self._result_log_timeout,
             )
             result = result.model_copy(update={"sandbox_execution": execution_name})
             await self._store.complete_sandbox_run(run_id, result)
