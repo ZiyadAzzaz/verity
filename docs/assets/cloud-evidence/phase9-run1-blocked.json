@@ -1,0 +1,30 @@
+{
+  "service_url": "https://verity-7pauedpknq-uc.a.run.app",
+  "claims": [
+    {
+      "url": "https://github.com/python-attrs/attrs",
+      "job_id": "049d3be210c644799d914fc7246b5da7",
+      "verdict": "no_verifiable_claim_found",
+      "actual_value": null,
+      "issue_url": "https://github.com/ZiyadAzzaz/verity-reports/issues/6",
+      "trace_events": 5
+    },
+    {
+      "url": "https://arxiv.org/abs/1810.04805",
+      "job_id": "98cf4c9ba5874246925daf68e5d3ab7d",
+      "verdict": null,
+      "actual_value": null,
+      "issue_url": null,
+      "trace_events": 6
+    },
+    {
+      "url": "https://github.com/pallets/click",
+      "job_id": "a152fa26b68f470f99b4bd995831e4b8",
+      "verdict": "no_verifiable_claim_found",
+      "actual_value": null,
+      "issue_url": "https://github.com/ZiyadAzzaz/verity-reports/issues/7",
+      "trace_events": 5
+    }
+  ],
+  "dedup_cached": true
+}

@@ -29,13 +29,35 @@ GCLOUD = r"D:\google-cloud\google-cloud-sdk\bin\gcloud.cmd"
 PROJECT, REGION, SERVICE = "verity-506800", "us-central1", "verity"
 EVIDENCE = Path(__file__).resolve().parents[1] / "docs" / "assets" / "cloud-evidence"
 
-#: Deliberately varied, and none of them is in the shipped local demo cache, so every run
-#: below is a genuinely fresh cloud-side verification rather than a cache replay.
+#: Chosen so the run cannot pass without exercising the parts that actually break. Claim
+#: memory only ever reuses a *completed* job, so none of these is served from cache: the two
+#: GitHub repositories have never been submitted to the cloud deployment, and the arXiv claim's
+#: previous attempt failed and was therefore never remembered.
+#:
+#: The first run of this script used three sources that all stopped at the parser, and it
+#: reported a clean pass over a pipeline that could not read a sandbox result back at all. Two
+#: of these three now reach execution, so that class of bug cannot hide again.
 CLAIMS: list[tuple[str, str]] = [
-    ("https://github.com/python-attrs/attrs", "GitHub README, small pure-Python library"),
-    ("https://arxiv.org/abs/1810.04805", "arXiv PDF, BERT GLUE score"),
-    ("https://github.com/pallets/click", "GitHub README, no headline benchmark expected"),
+    (
+        "https://github.com/psf/requests",
+        "GitHub README with an asserted number, small and quick to execute - expected to "
+        "reach the sandbox and reproduce",
+    ),
+    (
+        "https://arxiv.org/abs/1810.04805",
+        "arXiv PDF, BERT GLUE score - reaches the sandbox, and is the exact claim whose "
+        "read-back failed before the operation-metadata fix",
+    ),
+    (
+        "https://github.com/ijl/orjson",
+        "GitHub README for a compiled extension - expected to be declined as environment "
+        "incompatible rather than executed",
+    ),
 ]
+
+#: Completed by an earlier run against an earlier revision. Re-submitting it shows that claim
+#: memory is durable state in Firestore, not a cache inside one container that a deploy resets.
+PRIOR_RUN_URL = "https://github.com/python-attrs/attrs"
 
 
 def gcloud(*args: str) -> subprocess.CompletedProcess[str]:
@@ -184,14 +206,19 @@ def main() -> int:
         )
         print()
 
-    # Dedup on the live deployment.
-    first = CLAIMS[0][0]
-    print(f"  === dedup re-submission of {first}")
-    started = time.time()
-    again = post(url, key, first)
-    elapsed = (time.time() - started) * 1000
-    print(f"      cached={again.get('cached')}  status={again.get('status')}  in {elapsed:.0f} ms")
-    dedup_ok = bool(again.get("cached"))
+    # Dedup on the live deployment. The first URL was completed moments ago by this run;
+    # PRIOR_RUN_URL was completed by an earlier run against an earlier revision, so reusing it
+    # shows claim memory living in Firestore rather than in one container's process.
+    dedup_ok = True
+    for label, target in (("same run", CLAIMS[0][0]), ("earlier revision", PRIOR_RUN_URL)):
+        print(f"  === dedup re-submission ({label}) of {target}")
+        started = time.time()
+        again = post(url, key, target)
+        elapsed = (time.time() - started) * 1000
+        print(
+            f"      cached={again.get('cached')}  status={again.get('status')}  in {elapsed:.0f} ms"
+        )
+        dedup_ok = dedup_ok and bool(again.get("cached"))
 
     print("\n  === Cloud Run Job executions ===")
     for job_name in ("verity-pipeline", "verity-sandbox"):
