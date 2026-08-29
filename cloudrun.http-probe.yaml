@@ -2,6 +2,7 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   annotations:
+    run.googleapis.com/custom-audiences: '["https://verity.internal/pubsub/verity-506800"]'
     run.googleapis.com/ingress: all
     run.googleapis.com/ingress-status: all
     run.googleapis.com/maxScale: '20'
@@ -49,7 +50,7 @@ spec:
         - name: VERITY_PUBSUB_SERVICE_ACCOUNT
           value: verity-pubsub@verity-506800.iam.gserviceaccount.com
         - name: AGENT_VERSION
-          value: 1cc45ee04507
+          value: 81395ae0b3c9
         - name: ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS
           value: 'false'
         - name: APP_URL
@@ -64,7 +65,7 @@ spec:
             secretKeyRef:
               key: latest
               name: verity-github-token
-        image: us-central1-docker.pkg.dev/verity-506800/verity/verity-api@sha256:6a708965b91b6eab0602d17aa7b11807675c6c22f15d47bcd7a08647077f6326
+        image: us-central1-docker.pkg.dev/verity-506800/verity/verity-api@sha256:7adcc6ae837b1cd03caf2429c54f1ee5b8244415a9eac42e859f7adf34ab9175
         ports:
         - containerPort: 8080
           name: http1
