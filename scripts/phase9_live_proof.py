@@ -37,6 +37,14 @@ EVIDENCE = Path(__file__).resolve().parents[1] / "docs" / "assets" / "cloud-evid
 #: The first run of this script used three sources that all stopped at the parser, and it
 #: reported a clean pass over a pipeline that could not read a sandbox result back at all. Two
 #: of these three now reach execution, so that class of bug cannot hide again.
+#:
+#: https://arxiv.org/abs/1810.04805 was the second claim until it proved the wrong instrument.
+#: It reaches execution and gets as far as the debug loop, but google-research/bert cannot clone
+#: its TensorFlow-era dependencies and evaluate GLUE inside the 900 second sandbox budget, so the
+#: task is killed before it emits a result and the run ends in an infrastructure timeout with no
+#: verdict. That is a true limit of what Verity can verify rather than a defect, it is recorded
+#: as such, and a larger budget would not rescue a CPU BERT evaluation. Proving the *pipeline*
+#: needs a claim whose evaluation fails quickly and informatively, which is what ResNet does.
 CLAIMS: list[tuple[str, str]] = [
     (
         "https://github.com/psf/requests",
@@ -44,9 +52,9 @@ CLAIMS: list[tuple[str, str]] = [
         "reach the sandbox and reproduce",
     ),
     (
-        "https://arxiv.org/abs/1810.04805",
-        "arXiv PDF, BERT GLUE score - reaches the sandbox, and is the exact claim whose "
-        "read-back failed before the operation-metadata fix",
+        "https://arxiv.org/abs/1512.03385",
+        "arXiv PDF, ResNet ImageNet error rate - reaches the sandbox and fails for want of "
+        "weights and data, which is a verdict rather than an infrastructure failure",
     ),
     (
         "https://github.com/ijl/orjson",

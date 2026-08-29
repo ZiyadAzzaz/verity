@@ -1,0 +1,8 @@
+  status: running
+  status: failed
+  VERDICT : None
+  claimed : None  actual: None
+  attempts: 0
+  issue   : None
+  error   : Sandbox infrastructure failure: Cloud Run sandbox failed: TimeoutError: Cloud Run execution completed but its expected stdout envelope did not become available within 960 seconds.
+Repository revision integrity failure: expected eedf5716ce1268e56f0a50264a88cafad334ac61, observed missing.
