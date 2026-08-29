@@ -147,7 +147,8 @@ def main() -> int:
     print(f"  judge key   : loaded ({len(key)} chars, not printed)\n")
 
     results = []
-    for claim, why in CLAIMS:
+    # The description is only used when printing the plan above, not per-run.
+    for claim, _why in CLAIMS:
         print(f"  === {claim}")
         submitted = post(url, key, claim)
         job_id = submitted.get("job_id")
