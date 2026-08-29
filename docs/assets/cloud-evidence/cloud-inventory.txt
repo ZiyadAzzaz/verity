@@ -1,0 +1,23 @@
+# Verity — live cloud resource inventory
+# captured 2026-08-29T15:46:14Z
+
+## Cloud Run service: verity
+https://verity-7pauedpknq-uc.a.run.app | verity-00013-l7n | verity-app@verity-506800.iam.gserviceaccount.com
+
+## Cloud Run jobs
+NAME             SERVICE_ACCOUNT_NAME
+verity-pipeline  verity-app@verity-506800.iam.gserviceaccount.com
+verity-sandbox   verity-sandbox@verity-506800.iam.gserviceaccount.com
+
+## Pub/Sub topic + subscription
+projects/verity-506800/topics/verification-jobs
+projects/verity-506800/subscriptions/verity-worker | https://verity-7pauedpknq-uc.a.run.app/internal/pubsub | verity-pubsub@verity-506800.iam.gserviceaccount.com | https://verity.internal/pubsub/verity-506800
+
+## Service IAM (public read, key-gated writes)
+roles/run.invoker	['allUsers', 'serviceAccount:verity-pubsub@verity-506800.iam.gserviceaccount.com']
+
+## Secrets (names only)
+verity-api-key
+verity-github-token
+verity-judge-test-key
+verity-sandbox-deny-probe
