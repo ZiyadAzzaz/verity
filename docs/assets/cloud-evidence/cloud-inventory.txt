@@ -1,23 +1,19 @@
-# Verity — live cloud resource inventory
-# captured 2026-08-29T15:46:14Z
+# Verity - live cloud resource inventory
+# captured 2026-08-29T20:48:57Z - after Phase 9 PASS
 
-## Cloud Run service: verity
-https://verity-7pauedpknq-uc.a.run.app | verity-00013-l7n | verity-app@verity-506800.iam.gserviceaccount.com
+## Cloud Run service
+https://verity-7pauedpknq-uc.a.run.app | verity-00016-wsx | us-central1-docker.pkg.dev/verity-506800/verity/verity-api@sha256:577519dce57cac01cade62618ef615f354964d1eedd798442c65aba493f72896
 
-## Cloud Run jobs
+## Jobs and their identities
 NAME             SERVICE_ACCOUNT_NAME
 verity-pipeline  verity-app@verity-506800.iam.gserviceaccount.com
 verity-sandbox   verity-sandbox@verity-506800.iam.gserviceaccount.com
 
-## Pub/Sub topic + subscription
-projects/verity-506800/topics/verification-jobs
-projects/verity-506800/subscriptions/verity-worker | https://verity-7pauedpknq-uc.a.run.app/internal/pubsub | verity-pubsub@verity-506800.iam.gserviceaccount.com | https://verity.internal/pubsub/verity-506800
+## Push subscription
+https://verity-7pauedpknq-uc.a.run.app/internal/pubsub | verity-pubsub@verity-506800.iam.gserviceaccount.com | https://verity.internal/pubsub/verity-506800
 
-## Service IAM (public read, key-gated writes)
+## Service IAM
 roles/run.invoker	['allUsers', 'serviceAccount:verity-pubsub@verity-506800.iam.gserviceaccount.com']
 
-## Secrets (names only)
-verity-api-key
-verity-github-token
-verity-judge-test-key
-verity-sandbox-deny-probe
+## Pipeline IAM on the sandbox job (start only, no read-back)
+roles/run.jobsExecutorWithOverrides	['serviceAccount:verity-app@verity-506800.iam.gserviceaccount.com']
