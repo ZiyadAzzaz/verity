@@ -40,6 +40,17 @@ def test_health_reports_the_active_profile(client) -> None:
     assert body["sandbox"] == "docker"
 
 
+def test_architecture_page_describes_the_live_cloud_profile(client) -> None:
+    response = client.get("/architecture")
+
+    assert response.status_code == 200
+    assert "Cloud Run · live" in response.text
+    assert "No-role sandbox" in response.text
+    assert "operation metadata" in response.text
+    assert "Approximately $450 is available" in response.text
+    assert "production blocked" not in response.text.lower()
+
+
 def test_a_stopped_docker_daemon_is_reported_as_a_setup_problem(client) -> None:
     """Degraded, not silently healthy — and never a fallback to running code on the host."""
     body = client.get("/health").json()

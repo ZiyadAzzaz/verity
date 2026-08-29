@@ -334,13 +334,14 @@
     <div class="stamp-row">
       <span class="stamp">Gemini 3.5 Flash</span>
       <span class="stamp">Google ADK</span>
-      <span class="stamp">Cloud design · blocked</span>
-      <span class="stamp">Docker</span>
-      <span class="stamp">SQLite</span>
+      <span class="stamp">Cloud Run · live</span>
+      <span class="stamp">No-role sandbox</span>
+      <span class="stamp">Firestore + Pub/Sub</span>
     </div>
-    <div class="warning"><b>Audit status:</b> the local Docker profile is tested. The cloud
-      profile below is a design target and is intentionally blocked in production until its
-      sandbox uses a credential-free handoff and passes real cloud isolation tests.</div>
+    <div class="warning"><b>Deployment status:</b> the public API and private worker are live in
+      <code>verity-506800</code>. Phase 9 passed with real Cloud Run Job executions, durable
+      Firestore state, authenticated Pub/Sub push, and GitHub Issue artifacts. Untrusted code
+      runs as a no-role service account and receives no project credentials.</div>
   </header>
 
   <section>
@@ -358,23 +359,23 @@
       </div>
       <div class="stack-card">
         <div class="role">Compute</div>
-        <div class="name">Docker proven · Cloud Run experimental</div>
-        <div class="desc">Local execution is tested in disposable Docker containers. Cloud Run adapters exist but production is fail-closed.</div>
+        <div class="name">Cloud Run service + jobs</div>
+        <div class="desc">A public scale-to-zero API starts a private pipeline job, which launches a fresh no-role sandbox job for each execution attempt.</div>
       </div>
       <div class="stack-card">
         <div class="role">Messaging</div>
-        <div class="name">Async queue · Pub/Sub design</div>
-        <div class="desc">Local intake is asynchronous. Pub/Sub is wired but needs a verified OIDC worker boundary before deployment.</div>
+        <div class="name">Pub/Sub · verified OIDC</div>
+        <div class="desc">The push subscription calls the private worker endpoint with a Google-signed token, a dedicated identity, and an exact custom audience.</div>
       </div>
       <div class="stack-card">
         <div class="role">State &amp; Memory</div>
-        <div class="name">SQLite proven · Firestore design</div>
-        <div class="desc">SQLite stores real jobs, trace, and cache locally. Firestore code exists but has no live-cloud proof.</div>
+        <div class="name">Firestore · live durable memory</div>
+        <div class="desc">Jobs, traces, sandbox handoffs, terminal verdicts, and URL deduplication survive service revisions and process restarts.</div>
       </div>
       <div class="stack-card">
         <div class="role">Observability</div>
         <div class="name">Cloud Trace / Logging</div>
-        <div class="desc">Telemetry bootstrap is wired in API and worker code; no real Cloud Trace/Logging record has been observed.</div>
+        <div class="desc">Live logs correlate the API, Pub/Sub delivery, pipeline execution, nested sandbox execution, and final job record.</div>
       </div>
       <div class="stack-card">
         <div class="role">Output</div>
@@ -384,7 +385,7 @@
       <div class="stack-card">
         <div class="role">Frontend</div>
         <div class="name">FastAPI web app</div>
-        <div class="desc">Minimal UI works locally: submit a claim URL, watch status, and view the filed verdict.</div>
+        <div class="desc">Public read-only pages stay open for judges; job submission and result access require one of two separately managed API keys.</div>
       </div>
     </div>
   </section>
@@ -405,7 +406,7 @@
         <div class="stage-body">
           <h3>Environment Agent</h3>
           <p>Spins up an ephemeral sandbox, clones the target repo, installs dependencies, and attempts the evaluation run.</p>
-          <div class="uses">executes on &rarr; <b>Docker</b> locally · <b>Cloud Run Job</b> experimental</div>
+          <div class="uses">deterministic Python &rarr; <b>Docker</b> locally · live <b>Cloud Run Job</b> in cloud</div>
         </div>
       </div>
       <div class="stage">
@@ -421,7 +422,7 @@
         <div class="stage-body">
           <h3>Reporter Agent</h3>
           <p>Writes the structured verdict — claimed vs. actual result, what was fixed, confidence level — and files it as the final artifact.</p>
-          <div class="uses">delivers via &rarr; <b>GitHub API</b> + writes back to the <b>JobStore</b></div>
+          <div class="uses">deterministic Python &rarr; <b>GitHub API</b> + durable <b>JobStore</b></div>
         </div>
       </div>
     </div>
@@ -449,7 +450,7 @@
         <!-- Frontend -->
         <rect class="node" x="360" y="10" width="180" height="52"/>
         <text class="node-title" x="450" y="32" text-anchor="middle">Frontend</text>
-        <text class="node-sub" x="450" y="48" text-anchor="middle">Cloud Run · web form</text>
+        <text class="node-sub" x="450" y="48" text-anchor="middle">public reads · key-gated writes</text>
 
         <path class="edge" d="M450,62 L450,92"/>
         <text class="edge-label" x="462" y="80">submit claim URL</text>
@@ -457,20 +458,20 @@
         <!-- Orchestrator -->
         <rect class="node" x="345" y="94" width="210" height="52"/>
         <text class="node-title" x="450" y="116" text-anchor="middle">Orchestrator API</text>
-        <text class="node-sub" x="450" y="132" text-anchor="middle">Cloud Run · FastAPI</text>
+        <text class="node-sub" x="450" y="132" text-anchor="middle">Cloud Run · multi-key auth</text>
 
         <path class="edge" d="M450,146 L450,176"/>
 
         <!-- Pub/Sub -->
         <rect class="node" x="360" y="178" width="180" height="52"/>
         <text class="node-title" x="450" y="200" text-anchor="middle">Pub/Sub</text>
-        <text class="node-sub" x="450" y="216" text-anchor="middle">verification-jobs topic</text>
+        <text class="node-sub" x="450" y="216" text-anchor="middle">OIDC push · custom audience</text>
 
         <path class="edge" d="M450,230 L450,260"/>
 
         <!-- Agent pipeline group -->
         <rect class="grp" x="70" y="262" width="760" height="150"/>
-        <text class="grp-label" x="88" y="282">Cloud design target &middot; production blocked</text>
+        <text class="grp-label" x="88" y="282">Live cloud pipeline · isolated identities</text>
 
         <rect class="node" x="100" y="300" width="150" height="70"/>
         <text class="node-title" x="175" y="328" text-anchor="middle">Parser</text>
@@ -480,7 +481,7 @@
 
         <rect class="node" x="282" y="300" width="150" height="70"/>
         <text class="node-title" x="357" y="328" text-anchor="middle">Environment</text>
-        <text class="node-sub" x="357" y="344" text-anchor="middle">sandboxed exec</text>
+        <text class="node-sub" x="357" y="344" text-anchor="middle">no-role sandbox job</text>
 
         <path class="edge" d="M432,335 L462,335"/>
 
@@ -515,7 +516,11 @@
         <text class="node-sub" x="450" y="576" text-anchor="middle">final autonomous artifact</text>
       </svg>
     </div>
-    <p class="cap">This is the <b>unverified cloud design</b>, not a deployed system. The current sandbox-to-Firestore handoff exposes project credentials to untrusted code, so production configuration and the deploy script fail closed. The tested local profile uses SQLite, an in-process queue, and Docker; see section 04.</p>
+    <p class="cap">This is the <b>deployed cloud path</b>. The trusted pipeline creates a
+      one-time Firestore handoff, starts <code>verity-sandbox</code> with execution overrides,
+      and resolves the concrete execution name from the operation metadata. The sandbox identity
+      has no project roles and cannot read the Cloud Run API; the pipeline reads the bounded
+      result from logs and persists the evidence.</p>
   </section>
 
   <section>
@@ -525,7 +530,7 @@
       <code>VERITY_ENV</code>, chooses which implementations get wired in — and
       <code>verity/container.py</code> is the only module in the project that imports a concrete
       backend. The local profile needs no Google Cloud project, no billing account, and no card.
-      The cloud column is an adapter map, not a readiness claim.
+      The cloud column is the live production profile proven in Phase 9.
     </p>
     <div class="swap-scroll"><table class="swap">
       <thead>
@@ -559,16 +564,18 @@
           <td class="seam">Untrusted execution</td>
           <td class="impl">SandboxBackend</td>
           <td class="impl local">DockerSandboxBackend</td>
-          <td class="impl">CloudRunJobBackend · blocked in production</td>
+          <td class="impl">CloudRunJobBackend · live no-role sandbox</td>
         </tr>
       </tbody>
     </table></div>
 
     <div class="section-head" style="margin-top:44px;"><span class="section-num">&nbsp;</span><h2 style="font-size:22px;">Why the sandbox is not optional</h2></div>
     <p class="cap" style="margin-bottom:22px;">
-      The Environment Agent clones and executes arbitrary third-party code from GitHub. It never
-      runs that on the host. Each verification is four separate <code>docker run --rm</code>
-      invocations, and the network is only open where it has to be.
+      The Environment Agent clones and executes arbitrary third-party code from GitHub. Locally,
+      each phase is a separate hardened Docker invocation. In cloud, each attempt is a fresh
+      <code>verity-sandbox</code> execution under a dedicated service account with no IAM roles;
+      only the trusted pipeline can start it, using the narrow
+      <code>run.jobsExecutorWithOverrides</code> permission.
     </p>
     <div class="swap-scroll"><table class="swap">
       <thead>
@@ -589,22 +596,27 @@
       write outside the workspace, reach the network mid-benchmark, escalate privileges, find the
       Docker socket, and fork-bomb the daemon. Every attempt must fail for the gate to pass.
     </p>
+    <p class="cap" style="margin-top:18px;">
+      The cloud proof adds a second boundary: the sandbox receives no Google credentials or
+      project identifiers as secrets. A six-API deny probe confirmed that Firestore, Secret
+      Manager, Pub/Sub, Cloud Run, Vertex AI, and Cloud Storage all reject the sandbox identity.
+    </p>
   </section>
 
   <section>
-    <div class="section-head"><span class="section-num">05</span><h2>Free tools available from the hackathon</h2></div>
+    <div class="section-head"><span class="section-num">05</span><h2>Live controls and operating envelope</h2></div>
     <div class="res-list">
       <div class="res-item">
         <div class="tag">Cloud credits</div>
-        <div class="body"><b>$150 in Google Cloud credits may be available</b> through the hackathon Resources tab. Project ownership, billing linkage, and remaining credit were not verified in this audit.</div>
+        <div class="body"><b>Approximately $450 is available</b> from the Google Cloud no-cost trial plus the $150 hackathon grant on one billing account. The project target remains approximately $25, with check-in gates at $10 per action and $50 cumulative.</div>
       </div>
       <div class="res-item">
-        <div class="tag">GEAR program</div>
-        <div class="body"><b>Gemini Enterprise Agent Ready</b> — free through the Google Developer Program. Gives 35 monthly learning credits on Google Skills for hands-on labs in a no-cost sandbox, official ADK training, and skill badges.</div>
+        <div class="tag">Identity boundaries</div>
+        <div class="body"><b>Public GET, authenticated writes, private OIDC push.</b> The admin and judge keys are separate Secret Manager values; the worker accepts only the dedicated Pub/Sub identity and exact audience.</div>
       </div>
       <div class="res-item">
-        <div class="tag">Cost control</div>
-        <div class="body">Billing alerts only notify; they do not cap spend. Before any future deployment, add an operational shutdown procedure and protect every public or internal endpoint with validated identity/auth.</div>
+        <div class="tag">Current evidence</div>
+        <div class="body"><b>Phase 9 passed on the live service.</b> Three distinct honest outcome types, durable cache behavior, nested Cloud Run executions, Firestore records, and real GitHub Issues were observed. The service remains scale-to-zero and live through judging.</div>
       </div>
     </div>
   </section>
