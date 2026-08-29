@@ -23,6 +23,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 GCLOUD = r"D:\google-cloud\google-cloud-sdk\bin\gcloud.cmd"
 PROJECT, REGION, SERVICE = "verity-506800", "us-central1", "verity"
@@ -64,7 +65,7 @@ def judge_key() -> str:
     ).stdout.strip()
 
 
-def post(url: str, key: str, claim: str) -> dict:
+def post(url: str, key: str, claim: str) -> dict[str, Any]:
     out = subprocess.run(
         [
             "curl",
@@ -82,19 +83,21 @@ def post(url: str, key: str, claim: str) -> dict:
         capture_output=True,
         text=True,
     ).stdout
-    return json.loads(out or "{}")
+    parsed: dict[str, Any] = json.loads(out or "{}")
+    return parsed
 
 
-def fetch(url: str, key: str, job_id: str) -> dict:
+def fetch(url: str, key: str, job_id: str) -> dict[str, Any]:
     out = subprocess.run(
         ["curl", "-s", f"{url}/api/jobs/{job_id}", "-H", f"X-Verity-Key: {key}"],
         capture_output=True,
         text=True,
     ).stdout
-    return json.loads(out or "{}")
+    parsed: dict[str, Any] = json.loads(out or "{}")
+    return parsed
 
 
-def wait_terminal(url: str, key: str, job_id: str, timeout: int = 2400) -> dict | None:
+def wait_terminal(url: str, key: str, job_id: str, timeout: int = 2400) -> dict[str, Any] | None:
     deadline = time.time() + timeout
     last = ""
     while time.time() < deadline:
