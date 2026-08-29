@@ -229,10 +229,10 @@ That is single-digit dollars. **An exact figure requires the Console billing pag
 data is not available through the CLI without a BigQuery export, so treat the above as a usage
 inventory rather than an invoice.
 
-> **Correction:** [STATE.md](STATE.md) records a "$450 promotional credit". The operative
-> constraint is a **$150** grant, no payment method beyond it, and no paid tier to work around a
-> quota. Attaching the credit-backed billing account for provisioning is permitted; spending real
-> money past the credit is not.
+> **Credit and spend rule:** approximately **$450 available credit** (Google Cloud no-cost trial +
+> $150 hackathon grant, combined on one billing account); project spend target remains
+> approximately $25, with stop-and-check-in gates at $10 per action and $50 cumulative. These
+> targets were always independent of the total credit size.
 
 ---
 

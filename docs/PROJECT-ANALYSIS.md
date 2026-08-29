@@ -2,6 +2,8 @@
 
 > **Historical snapshot (2026-08-22).** Use [STATE.md](STATE.md) and
 > [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md) for the current analysis.
+> `$150`-only references below are superseded: approximately $450 is available from the Google
+> Cloud no-cost trial plus the $150 hackathon grant; the independent project target is about $25.
 
 **Date:** 2026-08-22
 **Repo:** https://github.com/ZiyadAzzaz/verity (private) · `main` @ `5732ed9` · 13 commits

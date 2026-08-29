@@ -4,6 +4,12 @@ Start here. Three documents carry the current truth; everything else is the evid
 it, kept because the trail is the point — each record was written when the work happened and still
 holds its original dates, commit ids, and test counts.
 
+**Current credit truth:** approximately **$450 available credit** (Google Cloud no-cost trial +
+$150 hackathon grant, combined on one billing account); project spend target remains approximately
+$25, with stop-and-check-in gates at $10 per action and $50 cumulative. These targets were always
+independent of the total credit size. Any `$150`-only limit in a historical snapshot or archived
+prompt records the information available at that earlier time and is superseded by this rule.
+
 ## Read these three
 
 | Document | What it is |

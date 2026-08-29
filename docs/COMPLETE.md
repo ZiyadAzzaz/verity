@@ -2,6 +2,8 @@
 
 > **Historical snapshot (2026-08-23).** Use [STATE.md](STATE.md) and
 > [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md) for current facts and test counts.
+> `$150`-only references below are superseded: approximately $450 is available from the Google
+> Cloud no-cost trial plus the $150 hackathon grant; the independent project target is about $25.
 
 **Updated:** 2026-08-23 · `main` @ `ff96a6f` · **119 tests passing**
 **Code:** https://github.com/ZiyadAzzaz/verity (public)

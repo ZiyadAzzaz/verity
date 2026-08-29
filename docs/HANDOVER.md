@@ -2,6 +2,8 @@
 
 > **Historical snapshot (2026-08-22).** It is no longer the source of truth. Use
 > [STATE.md](STATE.md) and [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md).
+> `$150`-only references below are superseded: approximately $450 is available from the Google
+> Cloud no-cost trial plus the $150 hackathon grant; the independent project target is about $25.
 
 **Updated:** 2026-08-22
 `STATUS.md`, `DOCKER-FIX.md`, and `PIVOT-STATUS.md` were folded into this historical handover.

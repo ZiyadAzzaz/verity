@@ -3,6 +3,8 @@
 > **Historical snapshot (2026-08-23).** Superseded by
 > [STATE.md](STATE.md) and [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md). Its test count,
 > eight-source gate claim, and cloud-readiness assessment are not current.
+> `$150`-only references below are superseded: approximately $450 is available from the Google
+> Cloud no-cost trial plus the $150 hackathon grant; the independent project target is about $25.
 
 **Date:** 2026-08-23
 **Method:** a fresh, skeptical pass. Every item below was **re-checked now**, not reported from

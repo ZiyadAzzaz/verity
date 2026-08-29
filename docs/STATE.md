@@ -7,9 +7,11 @@
 > private deployment stopped at a health gate are **resolved and kept only as the historical record
 > of how that failure was diagnosed**, which remains the most detailed account of it.
 >
-> Two corrections to what follows: the credit figure below says "$450 promotional credit"; the
-> operative constraint is a **$150** grant with no payment method beyond it. And the closing
-> instruction not to describe Verity as public no longer applies — it is public.
+> Two corrections to what follows: approximately **$450 available credit** (Google Cloud no-cost
+> trial + $150 hackathon grant, combined on one billing account); project spend target remains
+> approximately $25, with stop-and-check-in gates at $10 per action and $50 cumulative. These
+> targets were always independent of the total credit size. And the closing instruction not to
+> describe Verity as public no longer applies — it is public.
 
 **Audited:** 2026-08-24; scoped cloud-security and emulator validation updated 2026-08-25
 
