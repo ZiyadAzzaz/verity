@@ -1,0 +1,62 @@
+  service     : https://verity-7pauedpknq-uc.a.run.app
+  claims      : 3
+    - https://github.com/psf/requests
+      GitHub README with an asserted number, small and quick to execute - expected to reach the sandbox and reproduce
+    - https://arxiv.org/abs/1810.04805
+      arXiv PDF, BERT GLUE score - reaches the sandbox, and is the exact claim whose read-back failed before the operation-metadata fix
+    - https://github.com/ijl/orjson
+      GitHub README for a compiled extension - expected to be declined as environment incompatible rather than executed
+  judge key   : loaded (43 chars, not printed)
+
+  === https://github.com/psf/requests
+      job 0eb05cd78ee84c688dc930a2dc70c134  cached=False
+      status: queued
+      status: parsing
+      status: completed
+      verdict   : no_verifiable_claim_found  reproduced=None
+      attempts  : 0   trace: 5
+      issue     : https://github.com/ZiyadAzzaz/verity-reports/issues/8
+
+  === https://arxiv.org/abs/1810.04805
+      job dcc8e2c6af064722bfaa1143607e30c0  cached=False
+      status: queued
+      status: parsing
+      status: running
+      status: failed
+      verdict   : None  reproduced=None
+      attempts  : 0   trace: 6
+      issue     : None
+
+  === https://github.com/ijl/orjson
+      job 44358e3a13c9403eb79b8e58c89c051e  cached=False
+      status: queued
+      status: parsing
+      status: running
+      status: failed
+      verdict   : None  reproduced=None
+      attempts  : 0   trace: 6
+      issue     : None
+
+  === dedup re-submission (same run) of https://github.com/psf/requests
+      cached=True  status=completed  in 508 ms
+  === dedup re-submission (earlier revision) of https://github.com/python-attrs/attrs
+      cached=True  status=completed  in 920 ms
+
+  === Cloud Run Job executions ===
+    verity-pipeline: 5 recent execution(s)
+      verity-pipeline-wz4g5	
+      verity-pipeline-9v74n	2026-08-29T19:47:23.552745Z
+      verity-pipeline-ctrxw	2026-08-29T19:45:03.825782Z
+    verity-sandbox: 5 recent execution(s)
+      verity-sandbox-gf9xs	2026-08-29T19:50:53.801572Z
+      verity-sandbox-hslqm	2026-08-29T19:49:27.413768Z
+      verity-sandbox-kg9nq	2026-08-29T15:52:06.681500Z
+
+  wrote E:\Azzaz CAI\Researches\verity-hackathon\docs\assets\cloud-evidence\phase9-results.json
+
+  outcomes seen : ['no_verifiable_claim_found']
+  NO VERDICT    : 2 job(s) never reached one:
+    https://arxiv.org/abs/1810.04805
+    https://github.com/ijl/orjson
+  RESULT: REVIEW NEEDED
+exit=1

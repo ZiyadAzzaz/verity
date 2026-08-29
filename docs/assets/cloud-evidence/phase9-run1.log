@@ -1,0 +1,58 @@
+  service     : https://verity-7pauedpknq-uc.a.run.app
+  claims      : 3
+    - https://github.com/python-attrs/attrs
+      GitHub README, small pure-Python library
+    - https://arxiv.org/abs/1810.04805
+      arXiv PDF, BERT GLUE score
+    - https://github.com/pallets/click
+      GitHub README, no headline benchmark expected
+  judge key   : loaded (43 chars, not printed)
+
+  === https://github.com/python-attrs/attrs
+      job 049d3be210c644799d914fc7246b5da7  cached=False
+      status: queued
+      status: parsing
+      status: completed
+      verdict   : no_verifiable_claim_found  reproduced=None
+      attempts  : 0   trace: 5
+      issue     : https://github.com/ZiyadAzzaz/verity-reports/issues/6
+
+  === https://arxiv.org/abs/1810.04805
+      job 98cf4c9ba5874246925daf68e5d3ab7d  cached=False
+      status: queued
+      status: parsing
+      status: failed
+      verdict   : None  reproduced=None
+      attempts  : 0   trace: 6
+      issue     : None
+
+  === https://github.com/pallets/click
+      job a152fa26b68f470f99b4bd995831e4b8  cached=False
+      status: queued
+      status: completed
+      verdict   : no_verifiable_claim_found  reproduced=None
+      attempts  : 0   trace: 5
+      issue     : https://github.com/ZiyadAzzaz/verity-reports/issues/7
+
+  === dedup re-submission of https://github.com/python-attrs/attrs
+      cached=True  status=completed  in 479 ms
+
+  === Cloud Run Job executions ===
+    verity-pipeline: 3 recent execution(s)
+      verity-pipeline-m489k	
+      verity-pipeline-9tcxg	2026-08-29T15:48:15.424571Z
+      verity-pipeline-jpdtk	2026-08-29T15:45:56.744418Z
+    verity-sandbox: 4 recent execution(s)
+      verity-sandbox-kg9nq	
+      verity-sandbox-7qgm6	2026-08-27T15:34:29.140991Z
+      verity-sandbox-rcxvn	2026-08-27T09:55:43.274669Z
+
+  wrote E:\Azzaz CAI\Researches\verity-hackathon\docs\assets\cloud-evidence\phase9-results.json
+Traceback (most recent call last):
+  File "E:\Azzaz CAI\Researches\verity-hackathon\scripts\phase9_live_proof.py", line 219, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "E:\Azzaz CAI\Researches\verity-hackathon\scripts\phase9_live_proof.py", line 212, in main
+    print(f"\n  outcomes seen: {sorted(outcomes)}")
+                                ^^^^^^^^^^^^^^^^
+TypeError: '<' not supported between instances of 'NoneType' and 'str'

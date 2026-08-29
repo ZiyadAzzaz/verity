@@ -61,12 +61,16 @@
       <div class="field"><label for="url">Public claim URL</label><input id="url" type="url" required placeholder="https://arxiv.org/abs/…" autocomplete="url"></div>
       <div class="field"><label for="key">Verity API key</label><input id="key" type="password" placeholder="Required by deployed service" autocomplete="current-password"></div>
       <button id="submit" type="submit">Start verification</button>
+<!-- These name the *source*, never the verdict. Labelling a chip with its outcome promises a
+     result before the run, which is the exact habit Verity exists to argue against - and it was
+     briefly wrong in public: "requests - verified" came from a local cache, while the deployed
+     service reads the same README as a popularity statistic and returns no_verifiable_claim_found. -->
 <div class="examples"><span class="examples-label">Try one</span>
-<button type="button" class="chip" data-url="https://arxiv.org/abs/1512.03385">ResNet paper &middot; honest failure</button>
-<button type="button" class="chip" data-url="https://arxiv.org/abs/1706.03762">Attention paper &middot; honest failure</button>
-<button type="button" class="chip" data-url="https://github.com/psf/requests">requests &middot; verified</button>
-<button type="button" class="chip" data-url="https://github.com/ZiyadAzzaz/Stroke-Data-Analysis">data-analysis repo &middot; no verifiable claim</button>
-<button type="button" class="chip" data-url="https://github.com/ijl/orjson">orjson &middot; sandbox can't host it</button>
+<button type="button" class="chip" data-url="https://arxiv.org/abs/1512.03385">ResNet paper</button>
+<button type="button" class="chip" data-url="https://arxiv.org/abs/1706.03762">Attention paper</button>
+<button type="button" class="chip" data-url="https://github.com/psf/requests">requests README</button>
+<button type="button" class="chip" data-url="https://github.com/ZiyadAzzaz/Stroke-Data-Analysis">data-analysis repo</button>
+<button type="button" class="chip" data-url="https://github.com/ijl/orjson">orjson &middot; compiled extension</button>
 </div>
     </form>
     <div id="error" class="error" role="alert"></div>
