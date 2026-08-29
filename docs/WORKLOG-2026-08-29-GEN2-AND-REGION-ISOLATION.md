@@ -1,12 +1,19 @@
 # Verity — Cloud Run Gen2 and Region Isolation
 
-**Date:** 2026-08-29  
-**Repository:** `https://github.com/ZiyadAzzaz/verity`  
-**Branch:** `main`  
-**Starting revision:** `d93ea9ff849a6548b9891adaae56192d00742289`  
-**Operator:** `ziyadazzazdesigner@gmail.com`  
-**Project:** `verity-506800`  
-**Production region:** `us-central1`  
+**Date:** 2026-08-29
+
+**Repository:** `https://github.com/ZiyadAzzaz/verity`
+
+**Branch:** `main`
+
+**Starting revision:** `d93ea9ff849a6548b9891adaae56192d00742289`
+
+**Operator:** `ziyadazzazdesigner@gmail.com`
+
+**Project:** `verity-506800`
+
+**Production region:** `us-central1`
+
 **Phase 8:** not authorized and not executed
 
 ## Objective and boundary
