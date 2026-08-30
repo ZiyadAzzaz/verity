@@ -119,9 +119,9 @@ would only make a local process attempt to use cloud adapters.
    [CONSOLE-SCREENSHOTS.md](assets/cloud-evidence/CONSOLE-SCREENSHOTS.md).
 4. Verify the repository, hosted application, architecture, and evidence Issue links in a signed-
    out browser.
-5. Keep the scale-to-zero service live through demo recording and submission checks. Continued
-   judging-period uptime is convenient but not a contest requirement; the demo and repository
-   must retain clear proof that it was built and deployed on Google Cloud.
+5. Keep the scale-to-zero service and dedicated judge credential available free of charge through
+   the official judging period ending October 1, 2026. The binding rules require test access even
+   though judges may choose to evaluate only the text, images, and video.
 6. If the service is later disabled, preserve the deployment evidence first. Rotate or remove only
    the judge-key secret when judge access should end.
 

@@ -304,10 +304,12 @@ than keep a warm instance permanently. A cold request may therefore be slower. T
 revision also has CPU throttling disabled, so compute can accrue for an instance's whole
 lifecycle while that instance exists; do not describe its billing as strictly “only per request.”
 
-The contest requires clear proof that the project was built and deployed on Google Cloud. The
-official FAQ says that proof can be captured in the demo and repository before infrastructure is
-later turned off. Keeping the URL live is still strongly recommended for judge convenience, but
-it is not a promise of permanent hosting.
+The contest requires clear proof that the project was built and deployed on Google Cloud. More
+importantly, the binding rules require the working project to remain available free of charge and
+without restriction for judge testing through the judging period ending October 1, 2026. Judges
+may choose to rely only on the description, images, and video, but the safest compliant posture is
+to keep both the scale-to-zero service and dedicated judge credential active through that date.
+This is still not a promise of permanent hosting after the contest.
 
 ## Does keeping it live need money?
 

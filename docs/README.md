@@ -10,10 +10,11 @@ $25, with stop-and-check-in gates at $10 per action and $50 cumulative. These ta
 independent of the total credit size. Any `$150`-only limit in a historical snapshot or archived
 prompt records the information available at that earlier time and is superseded by this rule.
 
-## Read these five
+## Read these six
 
 | Document | What it is |
 |---|---|
+| [HACKATHON-SUBMISSION.md](HACKATHON-SUBMISSION.md) | **Devpost source.** Copy-ready narrative, requirements, rubric map, testing text, and owner checklist |
 | [PROJECT-STATUS-2026-08-29.md](PROJECT-STATUS-2026-08-29.md) | **Current source of truth.** What works, what does not, what is left, what it costs |
 | [FINAL-OWNER-AND-JUDGE-RUNBOOK.md](FINAL-OWNER-AND-JUDGE-RUNBOOK.md) | **Do this now.** Final links, owner checklist, judge walkthrough, demo, cost, uptime, and full project story |
 | [JUDGE-HANDOFF.md](JUDGE-HANDOFF.md) | Hosted UI/API flow, safe key handoff, public reports, and owner submission checklist |
@@ -21,6 +22,10 @@ prompt records the information available at that earlier time and is superseded 
 | [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md) | How every session records what it did |
 
 Newest session records:
+
+[WORKLOG-2026-08-30-GITHUB-JUDGE-READINESS.md](WORKLOG-2026-08-30-GITHUB-JUDGE-READINESS.md)
+— official-rule audit, judge-first README, refreshed evidence images, prompt-archive framing,
+submission brief, security policy, and remaining owner-only gates.
 
 [WORKLOG-2026-08-30-FINAL-OWNER-JUDGE-RUNBOOK.md](WORKLOG-2026-08-30-FINAL-OWNER-JUDGE-RUNBOOK.md)
 — consolidated owner/judge instructions, demo order, safe credential handoff, and precise

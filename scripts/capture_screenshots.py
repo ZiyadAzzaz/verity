@@ -23,7 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "assets" / "screenshots"
-ISSUE_URL = "https://github.com/ZiyadAzzaz/verity-reports/issues/1"
+ISSUE_URL = "https://github.com/ZiyadAzzaz/verity-reports/issues/9"
 
 CHROME_CANDIDATES = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",

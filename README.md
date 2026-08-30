@@ -1,5 +1,18 @@
 # Verity
 
+[![CI](https://github.com/ZiyadAzzaz/verity/actions/workflows/ci.yml/badge.svg)](https://github.com/ZiyadAzzaz/verity/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![Live on Cloud Run](https://img.shields.io/badge/Cloud%20Run-live-4285F4)](https://verity-7pauedpknq-uc.a.run.app)
+
+**All Things Agentic Hackathon · Taskmaster track**
+
+[Launch Verity](https://verity-7pauedpknq-uc.a.run.app) ·
+[Architecture](https://verity-7pauedpknq-uc.a.run.app/architecture) ·
+[Public verdicts](https://github.com/ZiyadAzzaz/verity-reports/issues) ·
+[Judge guide](docs/JUDGE-HANDOFF.md)
+
+![Verity running on Google Cloud](docs/assets/cloud-evidence/cloud-live-ui.png)
+
 Verity is an autonomous verification system for public AI/ML performance claims. It does
 not summarize a paper or README and call that verification: it extracts a typed numerical
 claim, runs the associated repository in a fresh sandbox, makes at most three transparent
@@ -25,47 +38,67 @@ the one module that picks concrete backends.
 
 ## See it actually work
 
-**A real verdict Verity filed on its own:
-[verity-reports#1](https://github.com/ZiyadAzzaz/verity-reports/issues/1).**
+The deployed service has completed real public claims through Cloud Run, Firestore, Pub/Sub,
+Vertex AI, and nested no-role sandbox jobs. Verity filed each durable report itself:
 
-It tried to reproduce the ResNet paper's 4.49% top-5 error rate, failed after three bounded
-repair attempts, and reported `Reproduced: not captured` — an empty cell where a fabricated
-number would otherwise sit. The Debug Agent's own reasoning, quoted from that Issue:
+| Live evidence | Outcome | What it proves |
+|---|---|---|
+| [Requests · Issue #8](https://github.com/ZiyadAzzaz/verity-reports/issues/8) | `no_verifiable_claim_found` | It refuses to confuse popularity statistics with reproducible benchmarks |
+| [ResNet · Issue #9](https://github.com/ZiyadAzzaz/verity-reports/issues/9) | `could_not_verify` | It extracts the exact claim, tries three bounded repairs, and invents no value |
+| [orjson · Issue #10](https://github.com/ZiyadAzzaz/verity-reports/issues/10) | `inconclusive` | It runs the evaluation but refuses an unsupported conclusion |
+| [Post-fix proof · Issue #12](https://github.com/ZiyadAzzaz/verity-reports/issues/12) | `could_not_verify` | It proves the corrected Firestore and reporting path end to end |
 
-> *"Fabricating the metric or replacing the evaluation with a constant is strictly prohibited
-> under the security and honesty rules. Therefore, no defensible fix can be proposed."*
+**Try the [live Cloud Run application](https://verity-7pauedpknq-uc.a.run.app), or run the
+[ten-minute local demo](docs/LOCAL-DEMO.md) without a Google Cloud account or model API call.**
 
-**Run it yourself in ten minutes, without an API key:
-[docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md).** Five claims ship with real cached verdicts, so a
-genuine result returns instantly without a single model call.
+## Architecture
 
-## Documentation
+```mermaid
+flowchart TD
+    U[Browser / API client] -->|X-Verity-Key on job APIs| API[Public Cloud Run API]
+    API <--> FS[(Firestore jobs, trace, claim memory)]
+    API -->|publish job ID| PS[Pub/Sub]
+    PS -->|Google OIDC, exact audience| W[Private pipeline Cloud Run Job]
+    W -->|typed Parser + Debug agents| V[Vertex AI · Gemini 3.5 Flash · Google ADK]
+    W -->|bounded execution override| S[No-role sandbox Cloud Run Job]
+    S -->|one bounded stdout artifact| W
+    W --> FS
+    W -->|structured verdict| GH[Public GitHub Issue]
+```
 
-| Document | Contents |
+Untrusted evaluation code receives no project role, application secret, GitHub credential, or
+Google client. Before production, a live identity probe attempted six sensitive Google Cloud
+operations from the sandbox and required six explicit denials. See the
+[full deployed architecture](https://verity-7pauedpknq-uc.a.run.app/architecture) and
+[security report](docs/SECURITY-QUALITY-REPORT.md).
+
+## Why this fits Taskmaster
+
+| Judging criterion | Verity evidence |
 |---|---|
-| [docs/STATE.md](docs/STATE.md) | **Start here** — full state, what is missing, next steps |
-| [docs/SECURITY-QUALITY-REPORT.md](docs/SECURITY-QUALITY-REPORT.md) | Professional findings, remediations, validation evidence, and residual-risk report |
-| [docs/SCOPED-CLOUD-SECURITY-FIX.md](docs/SCOPED-CLOUD-SECURITY-FIX.md) | Credential-free Cloud Run handoff, no-role identity gate, OIDC fix, and residual risks |
-| [docs/SCOPED-SECURITY-VALIDATION-2026-08-25.md](docs/SCOPED-SECURITY-VALIDATION-2026-08-25.md) | Exact local gates, live rerun evidence, quota blocker, and cloud acceptance status |
-| [docs/EMULATOR-VALIDATION-2026-08-25.md](docs/EMULATOR-VALIDATION-2026-08-25.md) | Official Firestore/Pub/Sub emulator evidence and exact remaining live-cloud gaps |
-| [docs/CLOUD-LIVE-SAFETY.md](docs/CLOUD-LIVE-SAFETY.md) | Current project, $450 credit truth, ~$25 target, hard cost gates, and billing boundary |
-| [docs/WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md](docs/WORKLOG-2026-08-27-CLOUD-SANDBOX-PREPARATION.md) | Complete live-cloud preparation record, stopped probe, decisions, evidence, cost, and next step |
-| [docs/WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md](docs/WORKLOG-2026-08-27-THIRD-SANDBOX-PROBE.md) | Third probe: local pre-flight, packaging assessment, five live denials, Firestore 404, cost, and decision gate |
-| [docs/WORKLOG-2026-08-27-FOURTH-SANDBOX-PROBE.md](docs/WORKLOG-2026-08-27-FOURTH-SANDBOX-PROBE.md) | Passing fourth probe, Firestore creation, full preflight, exact 6/6 evidence, costs, and assessment |
-| [docs/CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md](docs/CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md) | Review artifact: exact passing validator JSON bound to execution, identity, image digest, and cost |
-| [docs/POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md](docs/POST-PROBE-PRODUCTION-DEPLOYMENT-PLAN.md) | Prepared but unexecuted production API/pipeline deployment sequence and hard stop gates |
-| [docs/GOOGLE-CLOUD-CONSOLE-INSPECTION.md](docs/GOOGLE-CLOUD-CONSOLE-INSPECTION.md) | Read-only visual checklist for project, billing, build, image, job, IAM, secret, Pub/Sub, and APIs |
-| [docs/WORK-RECORD-STANDARD.md](docs/WORK-RECORD-STANDARD.md) | Required Markdown record for every future material work session |
-| [docs/AUDIT-2026-08-24.md](docs/AUDIT-2026-08-24.md) | Deep code, runtime, security, deployment, and artifact audit |
-| [docs/NEXT-IMPLEMENTATION.md](docs/NEXT-IMPLEMENTATION.md) | Exact evidence, recovery, secure-cloud, and staging gates |
-| [docs/REVIEW.md](docs/REVIEW.md) | Historical 2026-08-23 review |
-| [docs/COMPLETE.md](docs/COMPLETE.md) | Historical 2026-08-23 project record |
-| [docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md) | Clone and run it yourself, no API key |
-| [docs/architecture.md](docs/architecture.md) | Both profiles, trust boundaries, data model |
-| `verity-architecture.html` | The presentation diagram — open in a browser |
-| [docs/PRE-SUBMISSION-AUDIT.md](docs/PRE-SUBMISSION-AUDIT.md) | Historical 2026-08-23 audit |
-| [docs/PROJECT-ANALYSIS.md](docs/PROJECT-ANALYSIS.md) | Historical analysis |
-| [docs/HANDOVER.md](docs/HANDOVER.md) | Historical handover |
+| **Innovation & operational utility (40%)** | Converts a messy paper/repository/vendor URL into a completed verification workflow without human triage |
+| **Architectural discipline (30%)** | Typed ADK reasoning, explicit state machine, durable memory, OIDC queue boundary, no-role sandbox, bounded recovery, immutable reports |
+| **Demo & production readiness (30%)** | Public Cloud Run UI, reproducible local setup, green CI, live multi-claim proof, visible Google Cloud and GitHub artifacts |
+
+Parser and Debug are typed Google ADK `LlmAgent` stages because they need reasoning. Environment
+and Reporter are deterministic Python because execution construction and final numerical
+comparison must not hallucinate.
+
+## Essential documentation
+
+| Document | Purpose |
+|---|---|
+| [Hackathon submission brief](docs/HACKATHON-SUBMISSION.md) | Copy-ready Devpost narrative and rubric/evidence map |
+| [Final owner and judge runbook](docs/FINAL-OWNER-AND-JUDGE-RUNBOOK.md) | Final URLs, judge test, demo script, cost, uptime, and troubleshooting |
+| [Local demo](docs/LOCAL-DEMO.md) | Step-by-step spin-up instructions |
+| [Current project status](docs/PROJECT-STATUS-2026-08-29.md) | What is proven, limitations, costs, and remaining owner work |
+| [Architecture](docs/architecture.md) | Components, trust boundaries, state, and failure handling |
+| [Security report](docs/SECURITY-QUALITY-REPORT.md) | Findings, remediations, validation, and residual risk |
+| [Documentation index](docs/README.md) | Current truth plus the complete dated evidence trail |
+
+The repository keeps dated prompts and work records under `docs/history/` and `docs/` as
+development provenance. They are not runtime system prompts or current instructions; current
+documents above take precedence.
 
 ## What a result means
 
