@@ -6,6 +6,10 @@
 **Public verdicts:** <https://github.com/ZiyadAzzaz/verity-reports/issues>
 
 This is the practical handoff for testing the deployed system. It contains no credential value.
+For the complete owner sequence, four-minute demo plan, cost/uptime explanation, troubleshooting,
+and full project history, see
+[FINAL-OWNER-AND-JUDGE-RUNBOOK.md](FINAL-OWNER-AND-JUDGE-RUNBOOK.md).
+
 The owner must give a judge the dedicated judge key through a confirmed-private testing-
 instructions channel, never through GitHub, a screenshot, a demo recording, or public Markdown.
 If the Devpost field is publicly visible, use an organizer-approved private channel instead.

@@ -10,16 +10,21 @@ $25, with stop-and-check-in gates at $10 per action and $50 cumulative. These ta
 independent of the total credit size. Any `$150`-only limit in a historical snapshot or archived
 prompt records the information available at that earlier time and is superseded by this rule.
 
-## Read these four
+## Read these five
 
 | Document | What it is |
 |---|---|
 | [PROJECT-STATUS-2026-08-29.md](PROJECT-STATUS-2026-08-29.md) | **Current source of truth.** What works, what does not, what is left, what it costs |
+| [FINAL-OWNER-AND-JUDGE-RUNBOOK.md](FINAL-OWNER-AND-JUDGE-RUNBOOK.md) | **Do this now.** Final links, owner checklist, judge walkthrough, demo, cost, uptime, and full project story |
 | [JUDGE-HANDOFF.md](JUDGE-HANDOFF.md) | Hosted UI/API flow, safe key handoff, public reports, and owner submission checklist |
 | [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md) | The security audit that shaped the cloud design |
 | [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md) | How every session records what it did |
 
 Newest session records:
+
+[WORKLOG-2026-08-30-FINAL-OWNER-JUDGE-RUNBOOK.md](WORKLOG-2026-08-30-FINAL-OWNER-JUDGE-RUNBOOK.md)
+— consolidated owner/judge instructions, demo order, safe credential handoff, and precise
+cost/uptime guidance.
 
 [WORKLOG-2026-08-30-LIVE-CONTENT-CORRECTION.md](WORKLOG-2026-08-30-LIVE-CONTENT-CORRECTION.md) —
 cache-busted live/source proof, HTML cache hardening, architecture cleanup, public wording audit,
