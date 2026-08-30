@@ -49,6 +49,8 @@ cost evidence, and final live state.
 attempts including the two that failed, the resulting JSON, the filed Issues as captured pages, the
 live UI, and a resource inventory of the deployment. [CONSOLE-SCREENSHOTS.md](assets/cloud-evidence/CONSOLE-SCREENSHOTS.md)
 lists the five Console views that need a signed-in session and cannot be captured headlessly.
+The cache-busted post-refresh page proof is
+[LIVE-CONTENT-CORRECTION-2026-08-30.md](assets/cloud-evidence/LIVE-CONTENT-CORRECTION-2026-08-30.md).
 
 The failed runs are kept deliberately. `phase9-run1-blocked.json` is a run that reported a clean
 pass over a pipeline that could not read a sandbox result at all, which is the single best argument

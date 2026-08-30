@@ -253,7 +253,7 @@ Well inside the grant, and nothing is provisioned that draws down money once it 
 
 | Resource | Lifetime usage |
 |---|---|
-| Cloud Build | 7 builds, all SUCCESS; the two latest API-only builds took 74s and 99s |
+| Cloud Build | 8 builds, all SUCCESS; the three latest API-only builds took 74s, 99s, and 80s |
 | `verity-pipeline` executions | at least 15; the latest fix-validation run took 18m28s |
 | `verity-sandbox` executions | at least 12; the fix-validation run created four fresh executions |
 | Cloud Run service | 1 CPU / 2 GiB, `maxScale=2` |

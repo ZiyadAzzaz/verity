@@ -114,4 +114,53 @@ into a tested guarantee. Removing the meta-content is also the right editorial d
 should see system architecture, security boundaries, evidence flow, and real limitations—not the
 team's credit or billing context.
 
-The fresh immutable release and post-deployment evidence are recorded below after execution.
+## Immutable build and rollout
+
+- Source commit: `ea3afe191cb2`.
+- GitHub Actions run
+  [33286294335](https://github.com/ZiyadAzzaz/verity/actions/runs/33286294335): SUCCESS across Ruff,
+  formatting, mypy, non-Docker tests, both Docker builds, Docker tests, and isolation validation.
+- One API-only Cloud Build:
+  `9ab66b04-7fde-4ecc-bb7c-32da6b13e32f`.
+- Result: SUCCESS in 1m20s.
+- Immutable image:
+  `sha256:db29f7040eaf5e3217f103ee25381183d70693bc53d0ab0c40fa683940969d9e`.
+- Cloud Run created Ready revision `verity-00019-nfl` and routed 100% traffic to it.
+- Only the API service image and `VERITY_AGENT_VERSION=ea3afe191cb2` changed. IAM, ingress,
+  scaling, identities, secrets, startup probe, pipeline job, and sandbox job were unchanged.
+
+### Observed usage and closest cost evidence
+
+| Cloud action | Observed usage | Dollar evidence |
+|---|---|---|
+| API image build | 80 Cloud Build seconds; one 4.6 MiB source upload; one image push | No itemized real-time invoice is exposed; consistent with the pre-action `<$0.10` projection |
+| Service rollout | One revision creation, four page fetches, health, and one rejected unauthenticated request | Scale-to-zero and a handful of requests; near-zero incremental usage, no itemized invoice |
+
+No action approached the $10 check-in gate, and no evidence suggests cumulative project spend
+approached $50. Billing configuration was neither read nor changed.
+
+## Fresh post-deployment proof
+
+At 2026-08-30 01:46:48–01:46:49 UTC, both Cloud Run domains were fetched again with unique query
+values and no-cache request headers.
+
+- `/`: HTTP 200, `Cache-Control: no-store, max-age=0`, `Pragma: no-cache`, byte-for-byte equal to
+  `verity/static/index.html` at release HEAD.
+- `/architecture`: HTTP 200, the same cache policy, byte-for-byte equal to
+  `verity-architecture.html` at release HEAD.
+- Correct chips: `ResNet paper`, `Attention paper`, `requests README`, `data-analysis repo`, and
+  `orjson · compiled extension`.
+- Absent from both returned documents: `requests · verified`, free-tools heading, cloud credits,
+  GEAR, billing tips, design target, experimental, and both production-blocked phrasings.
+- `GET /health`: HTTP 200, cloud/Firestore/Pub/Sub/Cloud Run/GitHub, no setup error.
+- Unauthenticated `POST /api/jobs`: HTTP 401.
+
+The standalone evidence artifact is
+[LIVE-CONTENT-CORRECTION-2026-08-30.md](assets/cloud-evidence/LIVE-CONTENT-CORRECTION-2026-08-30.md).
+
+## Final assessment
+
+The live pages are now correct and explicitly non-cacheable. The old screenshot/PDF is useful as
+evidence of the missing cache policy, but it must not be reused in the submission. Refresh the URL
+or open a private window before capturing the new demo/export; the server will now require a fresh
+document on every navigation.
