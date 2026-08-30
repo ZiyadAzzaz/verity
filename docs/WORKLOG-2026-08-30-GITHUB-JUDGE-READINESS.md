@@ -76,6 +76,11 @@ the final public four-minute video, the private judge-key handoff, and the Devpo
 - Updated the screenshot capture source from historical Issue #1 to live-cloud Issue #9 and
   visually verified the new image.
 - Corrected judge-period uptime language in the judge handoff and final owner runbook.
+- Set the GitHub repository homepage to the live Cloud Run application.
+- Replaced the repository description with a concise Google ADK/no-role-sandbox value statement.
+- Added `ai-agents`, `cloud-run`, `firestore`, `gemini`, `google-adk`, `pubsub`,
+  `reproducibility`, `taskmaster`, and `vertex-ai` discovery topics.
+- Enabled GitHub private vulnerability reporting and verified its endpoint returned HTTP 200.
 
 ## Security and repository checks
 
@@ -84,6 +89,11 @@ the final public four-minute video, the private judge-key handoff, and the Devpo
 - Apache-2.0 license is detected by GitHub.
 - Repository creation and earliest commit are both inside the contest submission period.
 - All local Markdown links in the judge-facing documents resolve.
+- GitHub's Markdown renderer recognized the live links, Mermaid diagram, and submission brief.
+- Targeted local validation passed: Ruff and 11 frontend/security tests.
+- Full GitHub CI passed on commit `c2a934d`: Ruff, formatting, mypy, non-Docker tests, both
+  container builds, sandbox import, Docker tests, and isolation validation.
+- CI evidence: <https://github.com/ZiyadAzzaz/verity/actions/runs/33317905558>
 - No public cloud, IAM, secret, billing, or deployment state was changed.
 
 ## Remaining owner actions
