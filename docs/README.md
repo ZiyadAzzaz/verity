@@ -18,6 +18,11 @@ prompt records the information available at that earlier time and is superseded 
 | [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md) | The security audit that shaped the cloud design |
 | [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md) | How every session records what it did |
 
+Newest session record:
+[WORKLOG-2026-08-30-FINAL-LIVE-REFRESH.md](WORKLOG-2026-08-30-FINAL-LIVE-REFRESH.md) — credit
+correction, held-commit push, bounded live-verdict search, Firestore fix, architecture rollout,
+cost evidence, and final live state.
+
 `../README.md` is the entry point for someone meeting the project for the first time.
 
 ## Running it

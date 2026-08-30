@@ -80,7 +80,8 @@ change this session (§4.1).
 
 ### Local — strong
 
-- 284 tests pass, 12 skipped (Docker daemon down on this host, plus emulator tests).
+- 286 non-Docker tests pass, 3 emulator tests skip when their containers are not running; the
+  Docker and isolation jobs pass in CI.
 - Ruff, ruff-format, and `mypy verity app scripts` clean. CI green on `main`.
 - Docker isolation, the bounded three-attempt debug loop, the durable claim cache, and honest
   empty-result behaviour all have dedicated tests.
@@ -96,7 +97,7 @@ change this session (§4.1).
 | Pub/Sub → pipeline | `verity-pipeline` executions fire on every submission |
 | Two-tier isolated execution | `verity-sandbox` executions nested inside pipeline windows |
 | Durable state | verdicts and traces persisted in Firestore |
-| Autonomous reporting | Issues [#6], [#7], [#8] filed by cloud runs |
+| Autonomous reporting | Issues [#6] through [#12] filed by cloud runs |
 | Claim memory survives deploys | re-submission → `cached=true` in **920 ms**, across revisions |
 
 [#6]: https://github.com/ZiyadAzzaz/verity-reports/issues/6
@@ -135,11 +136,28 @@ The orjson run is the one to watch live: its status cycles
 `running → debugging → running → debugging → running → completed`, each attempt re-running the
 sandbox as a fresh nested execution.
 
+### Bounded search for a live `verified` result — complete, no hit
+
+A strict 20-minute search selected two genuinely unseen, small public benchmarks rather than
+replaying a curated local fixture:
+
+| Source | Why selected | Live result |
+|---|---|---|
+| `Emmimal/context-graph-benchmark` | Deterministic, 18 graded queries, explicit benchmark command | Initially exposed the Firestore nested-array defect below; after the fix it executed four sandbox runs and ended `could_not_verify` with [#12] |
+| `Emmimal/memory-decay-engine` | Standard-library only, no API or dataset download, deterministic N=50 benchmark | `inconclusive`, no captured scalar, [#11] |
+
+[#11]: https://github.com/ZiyadAzzaz/verity-reports/issues/11
+[#12]: https://github.com/ZiyadAzzaz/verity-reports/issues/12
+
+The search stopped after those bounded candidates. **There is still no honest live-cloud
+`verified` verdict.** The attempt improved the system anyway: it found and fixed a production
+serialization bug that ordinary fixtures did not cover.
+
 ---
 
 ## 4. What this session found
 
-Four bugs, every one of them reachable only by actually executing claims end to end. A
+Five bugs, every one of them reachable only by actually executing claims end to end. A
 single happy-path run would have reported a clean pass over a pipeline that could not read a
 sandbox result at all.
 
@@ -185,6 +203,23 @@ Note this cuts the right way: the cloud parse is *better* than the local one it 
 from an arXiv PDF carries typographic quotes, so polling raised `UnicodeDecodeError` mid-run. The
 pipeline was unaffected and went on working; only the script watching it lost the result.
 
+### 4.5 Firestore rejected real install plans
+
+The first bounded-search candidate produced a valid execution plan with
+`install_commands: list[list[str]]`. Standard-edition Firestore does not allow an array to
+directly contain another array, so the pipeline failed before execution with:
+
+```
+400 Property parsed_claim contains an invalid nested entity.
+```
+
+The Firestore adapter now wraps only nested arrays in a storage-only map and decodes that map
+before Pydantic validation. The public model, SQLite format, and sandbox request schema stay
+unchanged. A regression test checks there is no direct nested array and that the model round-trips.
+The exact failed source was then submitted again on the fixed production image: its parsed
+`pip install networkx scikit-learn` argv persisted, the job reached `running`, four sandbox
+executions completed, and [#12] was filed. That is the end-to-end proof of the fix.
+
 ---
 
 ## 5. Known limits — stated, not hidden
@@ -218,9 +253,9 @@ Well inside the grant, and nothing is provisioned that draws down money once it 
 
 | Resource | Lifetime usage |
 |---|---|
-| Cloud Build | 5 builds, all SUCCESS, ~2.5 min each |
-| `verity-pipeline` executions | ~10, most 2–4 min |
-| `verity-sandbox` executions | ~7 |
+| Cloud Build | 7 builds, all SUCCESS; the two latest API-only builds took 74s and 99s |
+| `verity-pipeline` executions | at least 15; the latest fix-validation run took 18m28s |
+| `verity-sandbox` executions | at least 12; the fix-validation run created four fresh executions |
 | Cloud Run service | 1 CPU / 2 GiB, `maxScale=2` |
 | Firestore | Native, `us-central1`, a few dozen small documents |
 | Vertex AI | `gemini-3.5-flash`, on the order of 50 calls |
@@ -244,17 +279,12 @@ inventory rather than an invoice.
    `verity-sandbox` execution, Firestore document, Logs Explorer trace. These need a signed-in
    session. Deep links and required framing are in
    [cloud-evidence/CONSOLE-SCREENSHOTS.md](assets/cloud-evidence/CONSOLE-SCREENSHOTS.md).
-2. **Approval to push.** Commits are held locally pending go-ahead on writes to `verity`.
-
 ### Queued work
 
-3. **README correction (high priority).** Its cloud section still says *"deployment remains paused
-   for a live security gate"* and the architecture table calls Cloud Run Jobs *"experimental,
-   blocked in production"*. Both are now false. This is the first thing a judge reads.
-4. **Redeploy for the chip fix** — `verity/static/index.html` ships inside the API image, so §4.3
-   is committed but not yet live.
-5. **Doc consolidation.** 46 files in `docs/`. The agreed target is three: this status document, the
-   security/audit record, and the work-record log.
+2. **Submission assets.** Finish the Devpost copy and demo recording after the owner captures the
+   five signed-in Console views.
+3. **Optional doc consolidation.** Keep the evidence trail, but lead readers through the current
+   index rather than deleting dated records.
 
 ---
 
@@ -268,10 +298,10 @@ runs that include failures it did not hide.
 The weakest part of the story is that **no live cloud run has yet produced a `verified` verdict.**
 The cloud has produced `no_verifiable_claim_found`, `could_not_verify`, and `inconclusive` — three
 honest outcomes, and every one of them a refusal to assert a number. The local profile does produce
-`verified`. Nothing in the design prevents a cloud `verified`; it needs a claim whose evaluation is
-small enough to finish and whose repository actually ships a runnable benchmark, and no source
-tried so far has been both. This is stated here rather than papered over, and it is the first thing
-to fix if there is time before submission.
+`verified`. The bounded search found two sources that were small enough and shipped runnable
+benchmarks, but one produced no captured scalar and the other exhausted its three transparent
+repair attempts. This is stated here rather than papered over; the search is complete and should
+not displace the remaining submission work.
 
 The second-weakest part is that the demo's strongest evidence is currently a *failure* to
 reproduce. That is philosophically on-message and practically less impressive than a green check,
