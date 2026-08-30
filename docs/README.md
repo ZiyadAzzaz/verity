@@ -10,15 +10,21 @@ $25, with stop-and-check-in gates at $10 per action and $50 cumulative. These ta
 independent of the total credit size. Any `$150`-only limit in a historical snapshot or archived
 prompt records the information available at that earlier time and is superseded by this rule.
 
-## Read these three
+## Read these four
 
 | Document | What it is |
 |---|---|
 | [PROJECT-STATUS-2026-08-29.md](PROJECT-STATUS-2026-08-29.md) | **Current source of truth.** What works, what does not, what is left, what it costs |
+| [JUDGE-HANDOFF.md](JUDGE-HANDOFF.md) | Hosted UI/API flow, safe key handoff, public reports, and owner submission checklist |
 | [AUDIT-2026-08-24.md](AUDIT-2026-08-24.md) | The security audit that shaped the cloud design |
 | [WORK-RECORD-STANDARD.md](WORK-RECORD-STANDARD.md) | How every session records what it did |
 
-Newest session record:
+Newest session records:
+
+[WORKLOG-2026-08-30-JUDGE-HANDOFF-AUDIT.md](WORKLOG-2026-08-30-JUDGE-HANDOFF-AUDIT.md) — current
+judge/API/report handoff and local-versus-cloud configuration audit.
+
+Previous session record:
 [WORKLOG-2026-08-30-FINAL-LIVE-REFRESH.md](WORKLOG-2026-08-30-FINAL-LIVE-REFRESH.md) — credit
 correction, held-commit push, bounded live-verdict search, Firestore fix, architecture rollout,
 cost evidence, and final live state.

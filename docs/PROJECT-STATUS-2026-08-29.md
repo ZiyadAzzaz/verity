@@ -279,11 +279,14 @@ inventory rather than an invoice.
    `verity-sandbox` execution, Firestore document, Logs Explorer trace. These need a signed-in
    session. Deep links and required framing are in
    [cloud-evidence/CONSOLE-SCREENSHOTS.md](assets/cloud-evidence/CONSOLE-SCREENSHOTS.md).
+2. **Judge credential handoff** — provide only `VERITY_JUDGE_TEST_KEY`, never the owner key, using
+   a confirmed-private judge channel. Follow [JUDGE-HANDOFF.md](JUDGE-HANDOFF.md); do not publish
+   the key in the repository, demo, screenshots, or a publicly visible Devpost field.
 ### Queued work
 
-2. **Submission assets.** Finish the Devpost copy and demo recording after the owner captures the
+3. **Submission assets.** Finish the Devpost copy and demo recording after the owner captures the
    five signed-in Console views.
-3. **Optional doc consolidation.** Keep the evidence trail, but lead readers through the current
+4. **Optional doc consolidation.** Keep the evidence trail, but lead readers through the current
    index rather than deleting dated records.
 
 ---

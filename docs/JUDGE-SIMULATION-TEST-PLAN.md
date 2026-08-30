@@ -1,5 +1,10 @@
 # Verity Judge-Simulation Test Plan
 
+> **Historical plan, superseded.** Phase 8 and the Phase 9 judge simulation have now completed.
+> The release also gained simultaneous owner/judge key support, so the single-key replacement
+> strategy below must not be followed. Use the current [judge handoff](JUDGE-HANDOFF.md) for the
+> real hosted service and retain this document only as the pre-deployment plan.
+
 **Prepared:** 2026-08-27  
 **Execution status:** prepared only; not authorized to run  
 **Hard gate:** do not execute until the owner explicitly authorizes Phase 8 and the service is

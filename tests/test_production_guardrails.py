@@ -180,6 +180,15 @@ def test_private_deploy_cannot_make_the_service_public() -> None:
     assert "get-iam-policy" in public_script
 
 
+def test_deployment_preserves_the_independent_judge_credential() -> None:
+    script = Path("scripts/deploy.ps1").read_text(encoding="utf-8")
+    assert "'VERITY_JUDGE_TEST_KEY'" in script
+    assert "VERITY_JUDGE_TEST_KEY must differ from VERITY_API_KEY" in script
+    assert "Test-Native gcloud secrets describe 'verity-judge-test-key'" in script
+    assert "VERITY_JUDGE_TEST_KEY=verity-judge-test-key:latest" in script
+    assert "Preserve a separately provisioned judge credential without reading" in script
+
+
 def test_api_image_installs_project_metadata_and_console_scripts() -> None:
     dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
     install = dockerfile.index("RUN python -m pip install --no-cache-dir --no-deps .")

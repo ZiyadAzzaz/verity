@@ -21,7 +21,7 @@ $script:VerityPython = Resolve-VerityPython -RepoRoot $repoRoot
 function Import-RequiredEnvironment {
     $envFile = Join-Path $repoRoot '.env'
     if (-not (Test-Path -LiteralPath $envFile)) { return }
-    $allowed = @('VERITY_API_KEY', 'VERITY_GITHUB_TOKEN', 'VERITY_REPORT_REPO')
+    $allowed = @('VERITY_API_KEY', 'VERITY_JUDGE_TEST_KEY', 'VERITY_GITHUB_TOKEN', 'VERITY_REPORT_REPO')
     foreach ($rawLine in Get-Content -LiteralPath $envFile) {
         $line = $rawLine.Trim()
         if (-not $line -or $line.StartsWith('#') -or -not $line.Contains('=')) { continue }
@@ -103,8 +103,11 @@ Import-RequiredEnvironment
 if (-not $ReportRepo) { $ReportRepo = $env:VERITY_REPORT_REPO }
 
 $apiKey = $env:VERITY_API_KEY
+$judgeTestKey = $env:VERITY_JUDGE_TEST_KEY
 $githubToken = $env:VERITY_GITHUB_TOKEN
 if (-not $apiKey -or $apiKey.Length -lt 24) { throw "Set VERITY_API_KEY to at least 24 random characters." }
+if ($judgeTestKey -and $judgeTestKey.Length -lt 24) { throw "Set VERITY_JUDGE_TEST_KEY to at least 24 random characters when provided." }
+if ($judgeTestKey -and $judgeTestKey -ceq $apiKey) { throw "VERITY_JUDGE_TEST_KEY must differ from VERITY_API_KEY." }
 if (-not $githubToken) { throw "Set VERITY_GITHUB_TOKEN to a fine-grained token with Issues: write." }
 if (-not $ReportRepo -or $ReportRepo -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw "Set VERITY_REPORT_REPO as owner/repository." }
 if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) { throw "Google Cloud SDK (gcloud) is required." }
@@ -187,7 +190,18 @@ function Set-Secret([string]$Name, [string]$Value) {
 Set-Secret 'verity-api-key' $apiKey
 Set-Secret 'verity-github-token' $githubToken
 Set-Secret 'verity-sandbox-deny-probe' 'This sentinel is deliberately non-sensitive.'
-foreach ($secret in 'verity-api-key','verity-github-token') {
+$judgeSecretAvailable = $false
+if ($judgeTestKey) {
+    Set-Secret 'verity-judge-test-key' $judgeTestKey
+    $judgeSecretAvailable = $true
+}
+elseif (Test-Native gcloud secrets describe 'verity-judge-test-key') {
+    # Preserve a separately provisioned judge credential without reading or rotating its value.
+    $judgeSecretAvailable = $true
+}
+$applicationSecretNames = @('verity-api-key','verity-github-token')
+if ($judgeSecretAvailable) { $applicationSecretNames += 'verity-judge-test-key' }
+foreach ($secret in $applicationSecretNames) {
     Invoke-Checked gcloud secrets add-iam-policy-binding $secret "--member=serviceAccount:$appServiceAccount" '--role=roles/secretmanager.secretAccessor' '--quiet'
 }
 
@@ -210,7 +224,14 @@ if (-not (Test-Native gcloud pubsub topics describe verification-jobs)) {
 Invoke-VerityPython @('-m', 'scripts.validate_cloud_sandbox_identity', '--project', $ProjectId, '--region', $Region, '--job', 'verity-sandbox', '--service-account', $sandboxServiceAccount, '--image', $sandboxImage)
 
 $commonEnvironment = "VERITY_ENV=cloud,VERITY_ENVIRONMENT=production,VERITY_GEMINI_MODEL=gemini-3.5-flash,VERITY_REPORT_REPO=$ReportRepo,GOOGLE_CLOUD_PROJECT=$ProjectId,GOOGLE_CLOUD_LOCATION=$Region,GOOGLE_CLOUD_VERTEX_LOCATION=global,GOOGLE_GENAI_USE_VERTEXAI=true,VERITY_PUBSUB_OIDC_AUDIENCE=$pubsubAudience,VERITY_PUBSUB_SERVICE_ACCOUNT=$pushServiceAccount,AGENT_VERSION=$sourceRevision"
-$applicationSecrets = 'VERITY_API_KEY=verity-api-key:latest,VERITY_GITHUB_TOKEN=verity-github-token:latest'
+$applicationSecretMappings = @(
+    'VERITY_API_KEY=verity-api-key:latest',
+    'VERITY_GITHUB_TOKEN=verity-github-token:latest'
+)
+if ($judgeSecretAvailable) {
+    $applicationSecretMappings += 'VERITY_JUDGE_TEST_KEY=verity-judge-test-key:latest'
+}
+$applicationSecrets = $applicationSecretMappings -join ','
 
 Invoke-AgentsCliIsolated deploy '--deployment-target' 'cloud_run' '--project' $ProjectId '--region' $Region '--service-name' 'verity' '--service-account' $appServiceAccount '--image' $apiImage '--memory' '2Gi' '--cpu' '1' '--min-instances' '0' '--max-instances' '2' '--concurrency' '4' '--secrets' $applicationSecrets '--update-env-vars' $commonEnvironment '--no-confirm-project'
 

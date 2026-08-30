@@ -229,6 +229,10 @@ Reading is open to anyone; submitting a claim requires `X-Verity-Key`, so an una
 reviewers get a second, independently revocable key, so withdrawing their access never means
 rotating the owner's.
 
+The exact browser and API walkthrough, safe judge-key handoff, and public report locations are in
+the [judge handoff](docs/JUDGE-HANDOFF.md). The key value is deliberately absent from Git and must
+be supplied to judges through the private testing instructions.
+
 A live multi-claim proof ran three genuinely different sources through the public endpoint and
 produced three different verdicts, none of them served from cache:
 
