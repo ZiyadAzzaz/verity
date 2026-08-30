@@ -44,11 +44,32 @@ def test_architecture_page_describes_the_live_cloud_profile(client) -> None:
     response = client.get("/architecture")
 
     assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store, max-age=0"
     assert "Cloud Run · live" in response.text
     assert "No-role sandbox" in response.text
     assert "operation metadata" in response.text
-    assert "Approximately $450 is available" in response.text
-    assert "production blocked" not in response.text.lower()
+    for stale_or_meta_copy in (
+        "Free tools available from the hackathon",
+        "Cloud credits",
+        "GEAR program",
+        "billing tips",
+        "production blocked",
+        "blocked in production",
+        "design target",
+        "experimental",
+    ):
+        assert stale_or_meta_copy.lower() not in response.text.lower()
+
+
+def test_homepage_examples_name_sources_without_promising_verdicts(client) -> None:
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store, max-age=0"
+    assert "ResNet paper" in response.text
+    assert "requests README" in response.text
+    assert "orjson &middot; compiled extension" in response.text
+    assert "requests · verified" not in response.text
 
 
 def test_a_stopped_docker_daemon_is_reported_as_a_setup_problem(client) -> None:

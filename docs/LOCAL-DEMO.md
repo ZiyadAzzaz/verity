@@ -378,10 +378,10 @@ VERITY_ENV=cloud
 No agent, pipeline step, or test changes — `verity/container.py` is the only module that
 imports a concrete backend.
 
-**Status, stated plainly:** the cloud adapters are experimental, have not run against live
-Google Cloud, and are blocked in production because the current sandbox task combines untrusted
-code, outbound networking, and a project identity. Do not deploy it until the credential-free
-handoff and cloud isolation work in [`AUDIT-2026-08-24.md`](AUDIT-2026-08-24.md) is complete.
+**Status, stated plainly:** both profiles are implemented. The cloud profile is deployed publicly
+and passed the credential-free sandbox proof plus a live multi-claim run. Its no-role sandbox
+cannot access six tested Google Cloud APIs. The local profile in this guide remains the quickest
+way to reproduce the system without a Google Cloud account.
 
 ---
 

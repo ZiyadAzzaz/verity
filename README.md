@@ -105,11 +105,10 @@ Stated plainly, because a verification tool that oversells itself is self-defeat
 - **The parser may extract a different claim on different runs** when a source contains
   several. Each extraction is grounded in a verbatim quote, but they are not identical
   between runs.
-- **The cloud profile is experimental and production is fail-closed.** The request/result handoff
-  is now credential-free and the sandbox identity is designed to have no roles, but Cloud Run still
-  combines outbound network access with untrusted code. Until the deployed identity passes the
-  stolen-token denial probe, `Settings` rejects production and `scripts/deploy.ps1` stops before
-  changing any resource.
+- **The cloud profile is deployed, but large evaluations remain bounded.** The credential-free
+  sandbox identity passed a live stolen-token probe against six sensitive APIs, and Phase 9 ran
+  multiple public claims end to end. Each execution still has a 900-second budget, so heavyweight
+  evaluations such as BERT/GLUE can time out rather than reach a verdict.
 - **Environment provenance is incomplete.** Timing/throughput/resource metrics now return
   `conditions_not_comparable`, but dataset, checkpoint, revision, hardware, and dependency
   equivalence are not yet recorded strongly enough for universal reproducibility claims.
@@ -283,7 +282,7 @@ query-string secret. See [current status](docs/PROJECT-STATUS-2026-08-29.md), th
 - Every direct dependency is exactly pinned; after a clean install, run
   `scripts/lock.ps1` to record the entire transitive environment in `requirements-lock.txt`.
 - Both container images use Python 3.11.15 and `--no-cache-dir` installs.
-- Cloud Run Job retries are configured off in the experimental deployment blueprint because
+- Cloud Run Job retries are configured off in the deployed cloud profile because
   Verity owns the visible three-attempt loop.
 - The first resolved repository commit is now recorded and pinned across all repair attempts.
   Fetched source bytes, the runner image digest, and evaluation conditions are not yet frozen and

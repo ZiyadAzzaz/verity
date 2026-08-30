@@ -21,6 +21,10 @@ prompt records the information available at that earlier time and is superseded 
 
 Newest session records:
 
+[WORKLOG-2026-08-30-LIVE-CONTENT-CORRECTION.md](WORKLOG-2026-08-30-LIVE-CONTENT-CORRECTION.md) —
+cache-busted live/source proof, HTML cache hardening, architecture cleanup, public wording audit,
+immutable rollout, and fresh evidence.
+
 [WORKLOG-2026-08-30-JUDGE-HANDOFF-AUDIT.md](WORKLOG-2026-08-30-JUDGE-HANDOFF-AUDIT.md) — current
 judge/API/report handoff and local-versus-cloud configuration audit.
 

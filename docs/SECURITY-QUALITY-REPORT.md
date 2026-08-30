@@ -11,8 +11,12 @@
 > **Update — 2026-08-25:** The scoped credential-free Cloud Run handoff, no-role sandbox policy,
 > metadata-token denial probe, and Pub/Sub OIDC correction described in
 > [SCOPED-CLOUD-SECURITY-FIX.md](SCOPED-CLOUD-SECURITY-FIX.md) are now implemented locally. The
-> historical findings below remain the reason for the change. Cloud status remains blocked until
-> the new acceptance probe passes in the owner's real project.
+> historical findings below remain the reason for the change.
+>
+> **Current disposition — 2026-08-30:** The acceptance probe subsequently passed in the owner's
+> project with six explicit 403 denials, and the replacement cloud profile passed its live
+> multi-claim proof. Read the findings below as the baseline that motivated the deployed design;
+> see [PROJECT-STATUS-2026-08-29.md](PROJECT-STATUS-2026-08-29.md) for current status.
 
 ## Executive summary
 
@@ -30,12 +34,11 @@ expressions, neutralize untrusted Markdown in GitHub reports, validate redirects
 distinguish infrastructure failure from claim failure, and make Firestore completion updates
 atomic.
 
-The audit also found a critical cloud trust-boundary flaw: the proposed Cloud Run sandbox could
+The audit also found a critical cloud trust-boundary flaw: the original Cloud Run sandbox could
 execute untrusted repository code while holding a project identity capable of accessing
 Firestore and while retaining outbound network access. That design was **not considered safe for
-production**. The scoped credential-free/no-role replacement is implemented and locally tested;
-cloud deployment remains intentionally blocked until its policy and stolen-token denial evidence
-is captured in the owner's project.
+production**. The scoped credential-free/no-role replacement is now deployed; its policy and
+stolen-token denial evidence were captured in the owner's project before public exposure.
 
 Current assessment:
 
@@ -46,8 +49,8 @@ Current assessment:
 | Local Docker isolation | Tested against a live Docker daemon |
 | CI quality gates | Implemented |
 | Public GitHub reporting artifacts | Available |
-| Cloud architecture | Prototype; production deployment blocked |
-| Arbitrary untrusted cloud execution | Not yet approved as safe |
+| Cloud architecture | Deployed and live-proven |
+| Arbitrary untrusted cloud execution | No-role job; six-API denial proof passed live |
 
 ## What was built
 

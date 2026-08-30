@@ -115,9 +115,11 @@ would only make a local process attempt to use cloud adapters.
    [CONSOLE-SCREENSHOTS.md](assets/cloud-evidence/CONSOLE-SCREENSHOTS.md).
 4. Verify the repository, hosted application, architecture, and evidence Issue links in a signed-
    out browser.
-5. Keep the scale-to-zero service live throughout the judging period; do not include it in an
-   early cleanup pass.
-6. After judging, rotate or remove only the judge-key secret if access should end.
+5. Keep the scale-to-zero service live through demo recording and submission checks. Continued
+   judging-period uptime is convenient but not a contest requirement; the demo and repository
+   must retain clear proof that it was built and deployed on Google Cloud.
+6. If the service is later disabled, preserve the deployment evidence first. Rotate or remove only
+   the judge-key secret when judge access should end.
 
 ## Professional recommendation
 

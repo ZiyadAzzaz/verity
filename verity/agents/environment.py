@@ -7,9 +7,9 @@ phase inside a throwaway container whose only writable mount is one fresh temp d
 Three backends implement :class:`verity.interfaces.SandboxBackend`:
 
 * :class:`DockerSandboxBackend` — local default. ``docker run --rm`` per phase.
-* :class:`CloudRunJobBackend` — experimental Cloud Run Job scheduler. Its task has a no-role
-  identity and exchanges bounded request/result envelopes through execution overrides and
-  platform-collected logs; cloud network isolation still needs live validation.
+* :class:`CloudRunJobBackend` — deployed Cloud Run Job scheduler. Its task has a no-role identity
+  and exchanges bounded request/result envelopes through execution overrides and platform-
+  collected logs; a live stolen-token probe confirmed denial from six sensitive cloud APIs.
 * :class:`LocalSandboxBackend` — raw host subprocesses. **Not an isolation boundary.** It
   exists because it is what runs *inside* the sandbox container image, where the container
   is the boundary; selecting it as the top-level backend requires an explicit opt-in.

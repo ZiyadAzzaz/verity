@@ -1,17 +1,18 @@
 # Verity architecture
 
-Verity's local infrastructure is implemented and exercised. The cloud adapter now has a
-credential-free request/log-result handoff, a no-role sandbox identity policy, and a mandatory
-metadata-token denial probe. Those controls are locally tested but have not run in the owner's
-Google Cloud project, so cloud production and deployment remain fail-closed. `VERITY_ENV` still
-selects adapters in one place, but the two profiles are not yet equally proven.
+Verity's local and cloud infrastructure are implemented and exercised. The cloud profile has a
+credential-free request/log-result handoff, a no-role sandbox identity, and a mandatory metadata-
+token denial probe. The probe ran in `verity-506800` and recorded six explicit 403 denials. The
+public API, authenticated Pub/Sub delivery, private pipeline, Cloud Run sandbox, Firestore state,
+Vertex reasoning, and GitHub reporting then passed a live multi-claim proof. `VERITY_ENV` selects
+the two profiles in one place.
 
 | Seam | Interface | `VERITY_ENV=local` | `VERITY_ENV=cloud` |
 |---|---|---|---|
 | State + trace + claim memory | `JobStore` | `SQLiteJobStore` (`verity.db`) | `FirestoreJobStore` |
 | Intake → processing | `JobQueue` | `AsyncioJobQueue` | `PubSubJobQueue` |
 | Model calls | `ModelClient` | `GeminiAIStudioClient` (API key) | `VertexAIModelClient` |
-| Untrusted execution | `SandboxBackend` | `DockerSandboxBackend` | `CloudRunJobBackend` (experimental) |
+| Untrusted execution | `SandboxBackend` | `DockerSandboxBackend` | `CloudRunJobBackend` (live no-role job) |
 
 The interfaces live in [`verity/interfaces.py`](../verity/interfaces.py) and the selection
 lives in [`verity/container.py`](../verity/container.py) — the only module that imports a
@@ -38,7 +39,7 @@ flowchart TD
     S -->|poll status + trace| A
 ```
 
-## Cloud pipeline — implemented, awaiting live security proof
+## Cloud pipeline — deployed and live-proven
 
 ```mermaid
 flowchart TD
@@ -63,9 +64,10 @@ flowchart TD
 
 The typed contracts and three-attempt state machine are shared. The cloud sandbox does not import
 a Google Cloud client, receive application secrets, or access Firestore. The trusted pipeline
-persists both sides of the handoff. Deployment remains blocked until a real task obtains its
-metadata token and proves that Firestore, Secret Manager, Pub/Sub, Cloud Run, Vertex AI, and Cloud
-Storage all deny it. See [SCOPED-CLOUD-SECURITY-FIX.md](SCOPED-CLOUD-SECURITY-FIX.md).
+persists both sides of the handoff. A live task obtained its metadata token and proved that
+Firestore, Secret Manager, Pub/Sub, Cloud Run, Vertex AI, and Cloud Storage all deny it. See
+[CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md](CLOUD-SANDBOX-LIVE-PROOF-2026-08-27.md) and the
+[current project status](PROJECT-STATUS-2026-08-29.md).
 
 ## The sandbox
 

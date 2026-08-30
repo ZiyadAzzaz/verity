@@ -94,12 +94,18 @@ def create_app(
 
     @api.get("/", include_in_schema=False)
     async def index() -> FileResponse:
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(
+            STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"},
+        )
 
     @api.get("/architecture", include_in_schema=False)
     async def architecture() -> FileResponse:
         candidate = Path.cwd() / "verity-architecture.html"
-        return FileResponse(candidate if candidate.is_file() else STATIC_DIR / "index.html")
+        return FileResponse(
+            candidate if candidate.is_file() else STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"},
+        )
 
     @api.get("/health")
     async def health(request: Request) -> dict[str, str | None]:
