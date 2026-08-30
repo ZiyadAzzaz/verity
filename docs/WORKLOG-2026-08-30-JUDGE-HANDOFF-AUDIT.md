@@ -141,6 +141,18 @@ cloud action, secret version, IAM mutation, build, revision, or cost.
 3. Record the demo around the hosted UI, Issue #9, its three bounded attempts, and a cached replay.
 4. Keep the scale-to-zero service live throughout judging.
 
+## Git delivery
+
+- Implementation/documentation commit:
+  `d038d6189d6a4cfd45053ad4780bc433d6b09ea7` (`docs: finalize judge handoff and preserve judge key`).
+- Pushed to `origin/main`; no force push or history rewrite.
+- GitHub Actions run
+  [33284062074](https://github.com/ZiyadAzzaz/verity/actions/runs/33284062074): **success** in 3m35s.
+- CI passed Ruff, formatting, mypy, the non-Docker suite, both container builds, sandbox import,
+  Docker tests, and the isolation validator.
+- CI emitted only maintenance notices about GitHub Actions Node 20 compatibility and conda setup
+  options; no project gate failed.
+
 ## Professional assessment
 
 The application, security boundary, public evidence, and architecture story are ready. The
