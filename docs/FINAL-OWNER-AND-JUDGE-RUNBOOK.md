@@ -399,8 +399,9 @@ screenshots, videos, and documentation.
     homepage and architecture content match the corrected source.
 
 Current state: the application is public, the write API remains key-protected, Cloud Run serves
-revision `verity-00019-nfl` at 100% traffic, Git local and `origin/main` match commit `a8f2997`,
-and CI is green.
+revision `verity-00019-nfl` at 100% traffic, Git local and `origin/main` are synchronized, and CI
+is green. Commit `a8f2997` is the verified deployed-content baseline; the final runbook was added
+afterward as a documentation-only change and did not redeploy the service.
 
 ## Troubleshooting
 
